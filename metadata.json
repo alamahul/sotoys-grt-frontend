@@ -1,0 +1,6 @@
+{
+  "name": "SOTOYS",
+  "description": "E-commerce toko online mainan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
