@@ -49,6 +49,8 @@ import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 
+import ScrollToTop from './components/ScrollToTop';
+
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="flex-grow flex items-center justify-center mt-6 p-8 bg-gray-50">
@@ -69,6 +71,7 @@ export default function App() {
           <CartProvider>
             <ToastProvider>
               <Router>
+                <ScrollToTop />
                 <div className="flex flex-col min-h-screen bg-gray-50 font-sans relative">
                   <Routes>
                     {/* Zone 1: Guest / Public */}

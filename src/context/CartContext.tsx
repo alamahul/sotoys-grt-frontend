@@ -1,14 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product } from '../types';
+import { mockProducts } from '../data/mock';
 
 export interface CartItem {
   product: Product;
   quantity: number;
+  selectedVariant?: string | null;
+  variantType?: string | null;
 }
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  addToCart: (product: Product, quantity?: number, variant?: { type: string; option: string } | null) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -23,7 +26,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem('sotoys_cart');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: CartItem[] = JSON.parse(saved);
+        // Validate cart items against current mockProducts
+        const validProductIds = new Set(mockProducts.map(p => p.id));
+        return parsed.filter(item => item.product && validProductIds.has(item.product.id));
       } catch (e) {
         return [];
       }
@@ -35,17 +41,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('sotoys_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (product: Product, quantity: number = 1) => {
+  const addToCart = (product: Product, quantity: number = 1, variant?: { type: string; option: string } | null) => {
     setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+      const existing = prev.find((item) => item.product.id === product.id && item.selectedVariant === (variant?.option || null));
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id
+          item.product.id === product.id && item.selectedVariant === (variant?.option || null)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity }];
+      return [...prev, { product, quantity, selectedVariant: variant?.option || null, variantType: variant?.type || null }];
     });
   };
 

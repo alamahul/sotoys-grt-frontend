@@ -4,8 +4,11 @@ import { mockProducts, mockCategories } from '../data/mock';
 import ProductCard from '../components/ProductCard';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import { ArrowRight, Flame, Filter, ChevronRight } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Product } from '../types';
+import VariantSelectionModal from '../components/VariantSelectionModal';
+import { useCart } from '../context/CartContext';
+import Swal from 'sweetalert2';
 
 export default function Home() {
   const [searchParams] = useSearchParams();

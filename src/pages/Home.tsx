@@ -1,26 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Swal from 'sweetalert2';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, ShieldCheck, Truck, Clock } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import useSmartLoading from '../hooks/useSmartLoading';
 import { mockProducts } from '../data/mock';
+import { Product } from '../types';
 import { motion } from 'motion/react';
-import HeroCarousel from '../components/HeroCarousel';
 import TestimonialCarousel from '../components/TestimonialCarousel';
-import { fadeIn, slideIn, staggerContainer } from '../components/animationVariants';
+import VariantSelectionModal from '../components/VariantSelectionModal';
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const { addToCart } = useCart();
+  const [selectedProduct, setSelectedProduct] = useState<typeof mockProducts[0] | null>(null);
+  const [showVariantModal, setShowVariantModal] = useState(false);
 
-  const fetchFeatured = async () => {
-    // Simulate async fetch; replace with real API call
+  const fetchFeatured = async (): Promise<Product[]> => {
     return new Promise(resolve => {
       setTimeout(() => resolve(mockProducts.slice(0, 4)), 300);
     });
   };
 
-  const { data: featuredProducts, showSkeleton } = useSmartLoading(fetchFeatured);
+  const { data: featuredProducts, showSkeleton } = useSmartLoading<Product[]>(fetchFeatured);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -30,19 +32,6 @@ export default function LandingPage() {
     <div className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Hero Section */}
       <section className="relative bg-orange-50 overflow-hidden">
-        {/* Hero Carousel */}
-        <HeroCarousel />
-        {/* Animated gradient blobs as background */}
-        <motion.div
-          className="absolute top-0 right-0 -mr-32 -mt-32 w-96 h-96 rounded-full bg-gradient-to-r from-orange-300 via-pink-200 to-purple-300 opacity-30 blur-3xl"
-          animate={{ rotate: [0, 360] }}
-          transition={{ repeat: Infinity, duration: 20, ease: 'linear' }}
-        />
-        <motion.div
-          className="absolute bottom-0 left-0 -ml-32 -mb-32 w-96 h-96 rounded-full bg-gradient-to-r from-yellow-200 via-green-200 to-blue-300 opacity-30 blur-3xl"
-          animate={{ rotate: [360, 0] }}
-          transition={{ repeat: Infinity, duration: 25, ease: 'linear' }}
-        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -141,8 +130,15 @@ export default function LandingPage() {
                       HABIS
                     </div>
                   )}
-                  <div className="relative aspect-square overflow-hidden bg-gray-100">
-                    <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+<div className="relative aspect-square overflow-hidden bg-gray-100">
+                     <img 
+                       src={product.images[0] || '/assets/uploads/products/placeholder.svg'} 
+                       alt={product.name} 
+                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                       onError={(e) => {
+                         (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
+                       }}
+                     />
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                       <Link to={`/product/${product.id}`} className="px-6 py-2 bg-white text-gray-900 font-bold rounded-full transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
                         Lihat Detail
@@ -158,30 +154,35 @@ export default function LandingPage() {
                     </Link>
                     <div className="flex items-center justify-between mt-4">
                       <span className="text-xl font-extrabold text-gray-900">{formatCurrency(product.price)}</span>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (product.stock > 0) {
-                            addToCart(product, 1);
-                            Swal.fire({
-                              title: 'Ditambahkan!',
-                              text: `${product.name} berhasil ditambahkan ke keranjang.`,
-                              icon: 'success',
-                              confirmButtonText: 'OK',
-                              confirmButtonColor: '#ea580c',
-                              timer: 2000,
-                              timerProgressBar: true,
-                            });
-                          }
-                        }}
-                        disabled={product.stock <= 0}
-                        className={`p-3 rounded-full flex items-center justify-center transition-all ${product.stock > 0
-                          ? 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          }`}
-                        aria-label="Tambah ke keranjang"
-                      >
+<button
+                         onClick={(e) => {
+                           e.preventDefault();
+                           e.stopPropagation();
+                           if (product.stock > 0) {
+                             if (product.variations && product.variations.length > 0) {
+                               setSelectedProduct(product);
+                               setShowVariantModal(true);
+                             } else {
+                               addToCart(product, 1);
+                               Swal.fire({
+                                 title: 'Ditambahkan!',
+                                 text: `${product.name} berhasil ditambahkan ke keranjang.`,
+                                 icon: 'success',
+                                 confirmButtonText: 'OK',
+                                 confirmButtonColor: '#ea580c',
+                                 timer: 2000,
+                                 timerProgressBar: true,
+                               });
+                             }
+                           }
+                         }}
+                         disabled={product.stock <= 0}
+                         className={`p-3 rounded-full flex items-center justify-center transition-all ${product.stock > 0
+                           ? 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white'
+                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                           }`}
+                         aria-label="Tambah ke keranjang"
+                       >
                         <ShoppingBag size={20} />
                       </button>
                     </div>
@@ -209,7 +210,7 @@ export default function LandingPage() {
           <p className="text-orange-100 text-lg md:text-xl mb-10 max-w-2xl mx-auto">
             Jangan lewatkan kesempatan untuk membahagiakan orang tersayang dengan koleksi mainan eksklusif dari SOTOYS GARUT. Dapatkan diskon 10% untuk pengguna baru!
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+<div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-white text-orange-600 font-extrabold text-lg rounded-full hover:bg-orange-50 hover:scale-105 transition-all shadow-xl">
               Daftar Sekarang
             </Link>
@@ -219,6 +220,36 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <VariantSelectionModal
+        product={selectedProduct}
+        isOpen={showVariantModal}
+        onClose={() => {
+          setShowVariantModal(false);
+          setSelectedProduct(null);
+        }}
+        onAddToCart={(qty, variant) => {
+          if (selectedProduct) {
+            addToCart(selectedProduct, qty, variant);
+            const variantText = variant ? ` (${variant.type}: ${variant.option})` : '';
+            Swal.fire({
+              title: 'Ditambahkan!',
+              text: `${selectedProduct.name}${variantText} berhasil ditambahkan ke keranjang.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#ea580c',
+              timer: 2000,
+              timerProgressBar: true,
+            });
+          }
+        }}
+        onBuyNow={(qty, variant) => {
+          if (selectedProduct) {
+            addToCart(selectedProduct, qty, variant);
+            navigate('/checkout');
+          }
+        }}
+      />
     </div>
-  );
+   );
 }

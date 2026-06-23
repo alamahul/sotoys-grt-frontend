@@ -1,19 +1,49 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Tag, Clock, ChevronRight, ShoppingBag, Copy, CheckCircle } from 'lucide-react';
-import { mockProducts } from '../data/mock';
-import { useCart } from '../context/CartContext';
+import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Tag, Clock, Copy, CheckCircle, ArrowRight, Percent } from 'lucide-react';
+import { mockProducts, mockCategories } from '../data/mock';
+import ProductCard from '../components/ProductCard';
+import ProductCardSkeleton from '../components/ProductCardSkeleton';
+import { Product } from '../types';
 
 export default function Promo() {
-  const { addToCart } = useCart();
+  const [searchParams] = useSearchParams();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>('default');
+  const [loading, setLoading] = useState(true);
+  const [promoProducts, setPromoProducts] = useState<Product[]>([]);
 
-  // Filter products that apply for promo (just a mock logic)
-  const promoProducts = mockProducts.filter(p => p.price > 100000);
+  const query = searchParams.get('q');
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-  };
+  useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => {
+      let filtered = mockProducts.filter(p => p.price > 100000);
+
+      if (selectedCategoryId) {
+        filtered = filtered.filter(p => p.categoryId === selectedCategoryId);
+      }
+
+      if (query) {
+        filtered = filtered.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+      }
+
+      if (sortBy === 'price_asc') {
+        filtered.sort((a, b) => a.price - b.price);
+      } else if (sortBy === 'price_desc') {
+        filtered.sort((a, b) => b.price - a.price);
+      } else if (sortBy === 'popularity') {
+        filtered.sort((a, b) => b.stock - a.stock);
+      }
+
+      setPromoProducts(filtered);
+      setLoading(false);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [selectedCategoryId, sortBy, query]);
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -23,15 +53,34 @@ export default function Promo() {
 
   return (
     <div className="bg-gray-50 min-h-screen pb-20">
-      {/* Header */}
-      <div className="bg-orange-600 text-white py-16 px-4 text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold mb-4">Promo & Penawaran Spesial</h1>
-        <p className="text-lg text-orange-100 max-w-2xl mx-auto">
-          Dapatkan berbagai diskon menarik dan penawaran eksklusif hanya untuk Anda pelanggan setia SOTOYS GARUT.
-        </p>
+      <Helmet>
+        <title>Promo & Penawaran Spesial | SOTOYS GARUT</title>
+        <meta name="description" content="Dapatkan berbagai diskon menarik dan penawaran eksklusif SOTOYS GARUT. Kupon diskon, potongan harga, dan gratis ongkir untuk Anda." />
+      </Helmet>
+
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden bg-orange-600 text-white mb-10 shadow-lg">
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-orange-400 opacity-90"></div>
+        <div className="relative px-8 py-12 sm:px-16 sm:py-16 flex flex-col items-start w-full md:w-2/3">
+          <span className="inline-flex items-center py-1 px-3 rounded-full bg-orange-100 text-orange-800 text-sm font-semibold mb-4">
+            <Percent size={16} className="mr-1" /> Promo Spesial
+          </span>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
+            Hemat Lebih, Belanja Lebih!
+          </h1>
+          <p className="text-orange-50 text-base md:text-lg mb-6 max-w-xl">
+            Nikmati diskon eksklusif, kupon cashback, dan penawaran khusus untuk mainan anak favorit Anda.
+          </p>
+          <Link
+            to="#produk-promo"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-orange-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 shadow-sm transition-colors"
+          >
+            Lihat Produk <ArrowRight className="ml-2 -mr-1 h-5 w-5" />
+          </Link>
+        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Coupons */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {/* Coupon 1 */}
@@ -43,13 +92,13 @@ export default function Promo() {
             </div>
             <div className="p-6 flex flex-col flex-grow">
               <div className="flex items-center text-sm text-gray-500 mb-4">
-                <Clock size={16} className="mr-1" /> Berlaku s/d 31 Des 2023
+                <Clock size={16} className="mr-1" /> Berlaku s/d 31 Des 2026
               </div>
               <p className="text-sm text-gray-600 mb-6">Gunakan kode ini saat checkout untuk mendapatkan potongan harga pada pembelian pertama Anda.</p>
               <div className="mt-auto">
                 <div className="flex items-center justify-between bg-gray-100 rounded-lg p-3">
                   <span className="font-mono font-bold text-gray-800 tracking-wider">NEW10SOTOYS</span>
-                  <button 
+                  <button
                     onClick={() => handleCopy('NEW10SOTOYS')}
                     className="text-orange-600 hover:text-orange-700 p-1"
                   >
@@ -69,13 +118,13 @@ export default function Promo() {
             </div>
             <div className="p-6 flex flex-col flex-grow">
               <div className="flex items-center text-sm text-gray-500 mb-4">
-                <Clock size={16} className="mr-1" /> Berlaku s/d 30 Nov 2023
+                <Clock size={16} className="mr-1" /> Berlaku s/d 30 Nov 2026
               </div>
               <p className="text-sm text-gray-600 mb-6">Potongan ongkos kirim hingga Rp 20.000 ke seluruh Indonesia untuk kategori mainan edukasi.</p>
               <div className="mt-auto">
                 <div className="flex items-center justify-between bg-gray-100 rounded-lg p-3">
                   <span className="font-mono font-bold text-gray-800 tracking-wider">FREESHIP20</span>
-                  <button 
+                  <button
                     onClick={() => handleCopy('FREESHIP20')}
                     className="text-blue-600 hover:text-blue-700 p-1"
                   >
@@ -101,7 +150,7 @@ export default function Promo() {
               <div className="mt-auto">
                 <div className="flex items-center justify-between bg-gray-100 rounded-lg p-3">
                   <span className="font-mono font-bold text-gray-800 tracking-wider">SOTOYSGARUT</span>
-                  <button 
+                  <button
                     onClick={() => handleCopy('SOTOYSGARUT')}
                     className="text-green-600 hover:text-green-700 p-1"
                   >
@@ -114,44 +163,64 @@ export default function Promo() {
         </div>
 
         {/* Promo Products */}
-        <div className="mb-8 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Tag className="mr-2 text-orange-600" /> Produk yang Berlaku
-          </h2>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {promoProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow group overflow-hidden border border-gray-100 flex flex-col">
-              <div className="relative aspect-square overflow-hidden bg-gray-100">
-                <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                  Promo
-                </div>
-              </div>
-              <div className="p-4 flex flex-col flex-grow">
-                <Link to={`/product/${product.id}`} className="block flex-grow">
-                  <h3 className="text-gray-900 font-medium text-sm leading-tight mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
-                    {product.name}
-                  </h3>
-                </Link>
-                <div className="flex items-center justify-between mt-3">
-                  <div>
-                    <span className="text-xs text-gray-400 line-through block">{formatCurrency(product.price * 1.2)}</span>
-                    <span className="text-lg font-bold text-orange-600">{formatCurrency(product.price)}</span>
-                  </div>
-                  <button
-                    onClick={() => addToCart(product, 1)}
-                    className="p-2 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-colors"
-                  >
-                    <ShoppingBag size={18} />
-                  </button>
-                </div>
-              </div>
+        <section id="produk-promo" className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+              <Tag className="mr-2 text-orange-600" /> Produk Promo
+            </h2>
+            <span className="text-sm text-gray-500 font-medium">
+              {loading ? 'Memuat...' : `${promoProducts.length} produk tersedia`}
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <div className="flex items-center space-x-3 w-full sm:w-auto">
+              <span className="text-sm text-gray-500 font-medium hidden sm:inline-block">
+                {loading ? '...' : `${promoProducts.length} produk`}
+              </span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md focus:ring-orange-500 focus:border-orange-500 block p-2 w-full sm:w-auto"
+                aria-label="Urutkan produk"
+              >
+                <option value="default">Paling Sesuai</option>
+                <option value="popularity">Terpopuler</option>
+                <option value="price_desc">Harga Tertinggi</option>
+                <option value="price_asc">Harga Terendah</option>
+              </select>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <ProductCardSkeleton key={index} />
+              ))}
+            </div>
+          ) : promoProducts.length > 0 ? (
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {promoProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-12 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                <Tag size={24} className="text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">Tidak ada produk promo</h3>
+              <p className="text-gray-500">Belum ada mainan promo di kategori ini.</p>
+              <button
+                onClick={() => setSelectedCategoryId(null)}
+                className="mt-4 px-4 py-2 bg-orange-50 text-orange-600 text-sm font-medium rounded-md hover:bg-orange-100 transition-colors"
+              >
+                Lihat Semua Promo
+              </button>
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Store, Target, Users, MapPin } from 'lucide-react';
-
+import GoogleMapAddress from '../components/GoogleMapsAddress';
 export default function About() {
   return (
     <div className="bg-white">
@@ -32,7 +32,7 @@ export default function About() {
             </div>
           </div>
           <div className="rounded-2xl overflow-hidden shadow-2xl">
-            <img src="https://images.unsplash.com/photo-1558066597-b648939c09d5?w=800&auto=format&fit=crop&q=80" alt="Toko Sotoys" className="w-full h-[400px] object-cover" />
+            <img src="https://images.unsplash.com/photo-1609713292783-5e45ec29b62d?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Toko Sotoys" className="w-full h-100 object-cover" />
           </div>
         </div>
 
@@ -75,8 +75,10 @@ export default function About() {
           </p>
           <div className="inline-flex items-center bg-orange-50 border border-orange-200 px-6 py-4 rounded-xl text-orange-800 font-medium">
             <MapPin className="mr-3 text-orange-600" size={24} />
-            <span>Jl. Ahmad Yani No. 123, Pusat Kota, Garut, Jawa Barat 44111</span>
+            <span>RT02 RW06, Kp.Cikarag, Mekarsari, Kec. Cibatu, Kabupaten Garut, Jawa Barat 44185</span>
+            
           </div>
+            <GoogleMapAddress />
         </div>
       </div>
     </div>

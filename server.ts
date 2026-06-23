@@ -61,6 +61,10 @@ async function startServer() {
     });
   });
 
+  // Serve static assets (uploads, images, etc.) from the project root
+  const assetsPath = path.join(process.cwd(), 'assets');
+  app.use('/assets', express.static(assetsPath));
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

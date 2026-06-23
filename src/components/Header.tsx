@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, ClipboardList, LogOut, Bell, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Search, ShoppingCart, User, ClipboardList, LogOut, Bell, LayoutDashboard, ChevronDown, Menu, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { mockProducts } from '../data/mock';
@@ -9,6 +9,7 @@ import Swal from 'sweetalert2';
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { totalItems } = useCart();
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function Header() {
       navigate(`/?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
+
   const handleLogout = () => {
     Swal.fire({
       title: 'Keluar dari Akun?',
@@ -53,24 +55,56 @@ export default function Header() {
     <>
       <header className="sticky top-0 z-50 bg-orange-500 text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-2xl font-bold tracking-tight">SOTOYS</Link>
+          <div className="flex items-center justify-between h-16 gap-4">
+            
+            {/* Kiri: Hamburger (Mobile) + Logo + Navigasi Desktop */}
+            <div className="flex items-center space-x-6 xl:space-x-8 flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="lg:hidden text-orange-50 hover:text-white transition-colors"
+                  aria-label="Buka menu navigasi"
+                >
+                  <Menu size={24} />
+                </button>
+                <Link to="/" className="text-2xl font-bold tracking-tight hover:opacity-90 transition-opacity">SOTOYS</Link>
+              </div>
+
+              {/* Menu Navigasi Desktop dengan Animasi Sliding Underline */}
+              <nav className="hidden lg:flex items-center space-x-6">
+                <Link 
+                  to="/" 
+                  className="relative text-sm font-medium text-orange-50 hover:text-white py-1 transition-colors duration-300 whitespace-nowrap after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-white after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300 after:origin-left"
+                >
+                  Beranda
+                </Link>
+                <Link 
+                  to="/catalog" 
+                  className="relative text-sm font-medium text-orange-50 hover:text-white py-1 transition-colors duration-300 whitespace-nowrap after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-white after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300 after:origin-left"
+                >
+                  Katalog Produk
+                </Link>
+                <Link 
+                  to="/about" 
+                  className="relative text-sm font-medium text-orange-50 hover:text-white py-1 transition-colors duration-300 whitespace-nowrap after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-white after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300 after:origin-left"
+                >
+                  Tentang Kami
+                </Link>
+              </nav>
             </div>
 
-            {/* Search Bar (Auto-suggest & Search execution) */}
-            <div className="flex-1 max-w-2xl mx-8 hidden sm:block">
+            {/* Tengah: Search Bar */}
+            <div className="flex-1 max-w-md lg:max-w-lg hidden sm:block mx-2">
               <form onSubmit={handleSearchSubmit} className="relative">
                 <input
                   type="text"
                   placeholder="Cari mainan kesukaanmu..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white text-gray-900 rounded-md py-2 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full bg-white text-gray-900 rounded-md py-2 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all"
                 />
-                <button type="submit" aria-label="Search" className="absolute right-0 top-0 mt-2 mr-3 text-gray-400 hover:text-orange-500">
-                  <Search size={20} />
+                <button type="submit" aria-label="Search" className="absolute right-0 top-0 mt-2 mr-3 text-gray-400 hover:text-orange-500 transition-colors">
+                  <Search size={18} />
                 </button>
 
                 {/* Auto-suggest dropdown */}
@@ -81,7 +115,7 @@ export default function Header() {
                         key={product.id}
                         to={`/product/${product.id}`}
                         onClick={() => setSearchQuery('')}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                       >
                         {product.name}
                       </Link>
@@ -91,13 +125,17 @@ export default function Header() {
               </form>
             </div>
 
-            {/* Icons */}
-            <div className="flex items-center space-x-3 sm:space-x-6">
-
-              <Link to="/cart" aria-label="Cart" className="text-orange-50 hover:text-white transition-colors relative" title="Keranjang">
-                <ShoppingCart size={22} className="sm:w-6 sm:h-6" />
+            {/* Kanan: Icons & User Menu + Tombol Keranjang Beranimasi */}
+            <div className="flex items-center space-x-4 sm:space-x-5 flex-shrink-0">
+              <Link 
+                to="/cart" 
+                aria-label="Cart" 
+                className="text-orange-50 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 relative p-1 block group" 
+                title="Keranjang"
+              >
+                <ShoppingCart size={22} className="group-hover:rotate-3 transition-transform" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-600 text-xs text-white font-bold px-1.5 py-0.5 rounded-full">
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-[10px] text-white font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse group-hover:scale-110 transition-transform">
                     {totalItems > 99 ? '99+' : totalItems}
                   </span>
                 )}
@@ -107,13 +145,13 @@ export default function Header() {
                 <div className="relative">
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center space-x-1.5 text-orange-50 hover:text-white transition-colors px-2 py-1.5 rounded-md hover:bg-orange-600"
+                    className="flex items-center space-x-2 text-orange-50 hover:text-white transition-colors p-1 rounded-md hover:bg-orange-600"
                   >
-                    <div className="w-7 h-7 rounded-full bg-white text-orange-600 flex items-center justify-center text-xs font-bold">
+                    <div className="w-7 h-7 rounded-full bg-white text-orange-600 flex items-center justify-center text-xs font-bold shadow-sm">
                       {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                     </div>
-                    <span className="hidden sm:inline-block text-sm font-medium">{user?.name?.split(' ')[0]}</span>
-                    <ChevronDown size={16} className={`transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                    <span className="hidden md:inline-block text-sm font-medium max-w-[80px] truncate">{user?.name?.split(' ')[0]}</span>
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {/* User Dropdown Menu */}
@@ -168,7 +206,7 @@ export default function Header() {
                   )}
                 </div>
               ) : (
-                <Link to="/login" className="text-sm font-medium text-white border border-white border-opacity-30 rounded px-2 sm:px-3 py-1.5 hover:bg-orange-600 transition whitespace-nowrap">
+                <Link to="/login" className="text-sm font-medium text-white border border-white border-opacity-40 rounded-md px-3 py-1.5 hover:bg-white hover:text-orange-600 active:scale-95 transition whitespace-nowrap">
                   <span className="hidden sm:inline">Masuk / Daftar</span>
                   <span className="sm:hidden">Masuk</span>
                 </Link>
@@ -177,7 +215,7 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile Search Bar - shown below header on small screens */}
+        {/* Mobile Search Bar */}
         <div className="sm:hidden px-4 pb-3">
           <form onSubmit={handleSearchSubmit} className="relative">
             <input
@@ -185,10 +223,10 @@ export default function Header() {
               placeholder="Cari mainan..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white text-gray-900 rounded-md py-2 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              className="w-full bg-white text-gray-900 rounded-md py-2 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all"
             />
-            <button type="submit" aria-label="Search" className="absolute right-0 top-0 mt-2 mr-3 text-gray-400 hover:text-orange-500">
-              <Search size={20} />
+            <button type="submit" aria-label="Search" className="absolute right-0 top-0 mt-2 mr-3 text-gray-400 hover:text-orange-500 transition-colors">
+              <Search size={18} />
             </button>
             {/* Auto-suggest dropdown mobile */}
             {searchQuery.trim().length > 0 && searchSuggestions.length > 0 && (
@@ -198,7 +236,7 @@ export default function Header() {
                     key={product.id}
                     to={`/product/${product.id}`}
                     onClick={() => setSearchQuery('')}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                   >
                     {product.name}
                   </Link>
@@ -209,16 +247,46 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Secondary Navigation */}
-      <div className="bg-orange-600 text-white border-t border-orange-700/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex flex-wrap space-x-4">
-            <Link to="/" className="px-3 py-3 text-sm font-medium text-orange-50 hover:text-white hover:bg-orange-700 transition-colors">Beranda</Link>
-            <Link to="/catalog" className="px-3 py-3 text-sm font-medium text-orange-50 hover:text-white hover:bg-orange-700 transition-colors">Katalog Produk</Link>
+      {/* Sidebar Overlay & Content (Mobile Only) dengan Efek Slide-In Teks */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 lg:hidden backdrop-blur-sm transition-all" onClick={() => setIsSidebarOpen(false)} />
+      )}
 
-            <Link to="/about" className="px-3 py-3 text-sm font-medium text-orange-50 hover:text-white hover:bg-orange-700 transition-colors">Tentang Kami</Link>
-          </nav>
+      <div
+        className={`fixed top-0 left-0 z-50 h-full w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-orange-500 text-white">
+          <span className="text-lg font-bold tracking-tight">Menu</span>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-white hover:rotate-90 hover:text-orange-100 transition-all duration-200" aria-label="Tutup menu">
+            <X size={22} />
+          </button>
         </div>
+
+        <nav className="py-4">
+          <Link 
+            to="/" 
+            onClick={() => { setIsSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'instant' }); }} 
+            className="block px-6 py-3.5 text-base font-medium text-gray-800 hover:bg-orange-50 hover:text-orange-600 border-l-4 border-transparent hover:border-orange-500 hover:pl-8 transition-all duration-300"
+          >
+            Beranda
+          </Link>
+          <Link 
+            to="/catalog" 
+            onClick={() => { setIsSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'instant' }); }} 
+            className="block px-6 py-3.5 text-base font-medium text-gray-800 hover:bg-orange-50 hover:text-orange-600 border-l-4 border-transparent hover:border-orange-500 hover:pl-8 transition-all duration-300"
+          >
+            Katalog
+          </Link>
+          <Link 
+            to="/about" 
+            onClick={() => { setIsSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'instant' }); }} 
+            className="block px-6 py-3.5 text-base font-medium text-gray-800 hover:bg-orange-50 hover:text-orange-600 border-l-4 border-transparent hover:border-orange-500 hover:pl-8 transition-all duration-300"
+          >
+            Tentang Kami
+          </Link>
+        </nav>
       </div>
     </>
   );

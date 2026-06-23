@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, ShoppingBag, ArrowLeft } from 'lucide-react';
+import Swal from 'sweetalert2'; // Import SweetAlert2
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 
@@ -14,6 +15,31 @@ export default function Cart() {
       currency: 'IDR',
       minimumFractionDigits: 0
     }).format(amount);
+  };
+
+  // Fungsi untuk menangani konfirmasi penghapusan dengan SweetAlert2
+  const handleDeleteConfirmation = (productId: string, productName: string) => {
+    Swal.fire({
+      title: 'Hapus Produk?',
+      text: `Yakin ingin menghapus ${productName} dari keranjang?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ea580c', // Mengikuti tema warna orange-600
+      cancelButtonColor: '#9ca3af', // Warna abu-abu untuk batal
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        removeFromCart(productId);
+        // Menampilkan alert sukses dari SweetAlert
+        Swal.fire({
+          title: 'Terhapus!',
+          text: 'Produk berhasil dihapus dari keranjang.',
+          icon: 'success',
+          confirmButtonColor: '#ea580c'
+        });
+      }
+    });
   };
 
   if (cartItems.length === 0) {
@@ -76,15 +102,22 @@ export default function Cart() {
                       </div>
                       
                       <div className="text-sm text-gray-500 mb-4">
-                        Sisa Stok: <span className="font-medium text-gray-700">{item.product.stock}</span>
-                      </div>
+                         Sisa Stok: <span className="font-medium text-gray-700">{item.product.stock}</span>
+                       </div>
+                      {item.selectedVariant && item.variantType && (
+                        <div className="text-sm text-orange-600 mb-4">
+                          Varian: <span className="font-medium">{item.variantType}: {item.selectedVariant}</span>
+                        </div>
+                      )}
+                      {item.selectedVariant && !item.variantType && (
+                        <div className="text-sm text-orange-600 mb-4">
+                          Varian: <span className="font-medium">{item.selectedVariant}</span>
+                        </div>
+                      )}
                       
                       <div className="mt-auto flex justify-between items-center">
                         <button 
-                          onClick={() => {
-                            removeFromCart(item.product.id);
-                            showToast('Item dihapus dari keranjang', 'info');
-                          }}
+                          onClick={() => handleDeleteConfirmation(item.product.id, item.product.name)}
                           className="flex items-center text-sm font-medium text-gray-500 hover:text-red-500 transition-colors py-1 focus:outline-none"
                         >
                           <Trash2 size={16} className="mr-1.5" />
@@ -93,9 +126,16 @@ export default function Cart() {
                         
                         <div className="flex items-center border border-gray-300 rounded-md">
                           <button 
-                            onClick={() => updateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
+                            onClick={() => {
+                              if (item.quantity === 1) {
+                                // Trigger hapus jika quantity 1 dan tombol min ditekan
+                                handleDeleteConfirmation(item.product.id, item.product.name);
+                              } else {
+                                updateQuantity(item.product.id, item.quantity - 1);
+                              }
+                            }}
                             className="px-3 py-1 text-gray-600 hover:bg-gray-100 hover:text-orange-600 transition focus:outline-none"
-                            disabled={item.quantity <= 1}
+                            // Hapus atribut disabled agar tombol tetap bisa ditekan saat quantity 1
                           >-</button>
                           <input 
                             type="number" 

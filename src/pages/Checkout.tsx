@@ -116,25 +116,45 @@ export default function Checkout() {
     const promo = AVAILABLE_PROMOS.find(p => p.code === cleanInput);
 
     if (!promo) {
-      showToast('Kode promo tidak valid atau telah kedaluwarsa.', 'error');
+      Swal.fire({
+        title: 'Kode Promo Tidak Valid',
+        text: 'Kode promo tidak valid atau telah kedaluwarsa.',
+        icon: 'error',
+        confirmButtonColor: '#ea580c'
+      });
       return;
     }
 
     // Validasi syarat minimum belanja
     if (subtotal < promo.minSpend) {
-      showToast(`Gagal memasang kode. Minimal belanja untuk promo ini adalah ${formatCurrency(promo.minSpend)}`, 'error');
+      Swal.fire({
+        title: 'Kode Promo Tidak Valid',
+        text: `Gagal memasang kode. Minimal belanja untuk promo ini adalah ${formatCurrency(promo.minSpend)}`,
+        icon: 'error',
+        confirmButtonColor: '#ea580c'
+      });
       return;
     }
 
     setAppliedPromo(promo);
-    showToast(`Kode promo ${promo.code} berhasil digunakan!`, 'success');
+    Swal.fire({
+      title: 'Promo Berhasil Diterapkan',
+      text: `Kode promo ${promo.code} berhasil diterapkan!`,
+      icon: 'success',
+      confirmButtonColor: '#ea580c'
+    });
   };
 
   // TAMBAHAN: Fungsi untuk menghapus promo yang sedang aktif
   const handleRemovePromo = () => {
     setAppliedPromo(null);
     setPromoInput('');
-    showToast('Promo berhasil dilepas.', 'info');
+    Swal.fire({
+      title: 'Promo Dihapus',
+      text: 'Promo berhasil dilepas.',
+      icon: 'info',
+      confirmButtonColor: '#ea580c'
+    });
   };
 
   const handleNextStep = () => {
@@ -411,6 +431,16 @@ export default function Checkout() {
                           <img src={item.product.images[0]} alt={item.product.name} className="w-12 h-12 object-cover rounded-md bg-gray-100 flex-shrink-0" />
                           <div className="truncate">
                             <span className="block font-medium text-gray-900 truncate">{item.product.name}</span>
+                            {item.selectedVariant && item.variantType && (
+                              <span className="block text-xs text-orange-600 font-medium mt-0.5">
+                                Varian: {item.variantType}: {item.selectedVariant}
+                              </span>
+                            )}
+                            {item.selectedVariant && !item.variantType && (
+                              <span className="block text-xs text-orange-600 font-medium mt-0.5">
+                                Varian: {item.selectedVariant}
+                              </span>
+                            )}
                             <span className="block text-xs text-gray-500 mt-0.5">{formatCurrency(item.product.price)} x{item.quantity}</span>
                           </div>
                         </div>

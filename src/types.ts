@@ -15,6 +15,16 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface VariationOption {
+  name: string;
+  image: string | null;
+}
+
+export interface Variation {
+  variation_type: string;
+  variation_options: VariationOption[];
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -32,6 +42,7 @@ export interface Product {
     createdAt: Date,
   ]
   images: string[];
+  variations?: Variation[];
   createdAt: Date;
   updatedAt: Date;
 }

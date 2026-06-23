@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Star, Check, Heart } from 'lucide-react';
 import { Product } from '../types';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
+import VariantSelectionModal from './VariantSelectionModal';
 
 interface ProductCardProps {
   product: Product;
@@ -14,10 +15,11 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const [added, setAdded] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { addToCart } = useCart();
   const { showToast } = useToast();
-
+  const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
   const [isNearScreen, setIsNearScreen] = useState(false);
 
@@ -32,7 +34,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           observer.unobserve(el);
         }
       },
-      { rootMargin: '300px' } // Pre-render 300px before coming into viewport
+      { rootMargin: '300px' }
     );
 
     observer.observe(el);
@@ -40,20 +42,31 @@ export default function ProductCard({ product }: ProductCardProps) {
   }, []);
 
   const handleAddToCart = () => {
-    addToCart(product, 1);
-    setAdded(true);
-    Swal.fire({
-      title: 'Ditambahkan!',
-      text: `${product.name} berhasil ditambahkan ke keranjang.`,
-      icon: 'success',
-      confirmButtonText: 'OK',
-      confirmButtonColor: '#ea580c',
-      timer: 2000,
-      timerProgressBar: true,
-    });
-    setTimeout(() => {
-      setAdded(false);
-    }, 2000);
+    if (product.variations && product.variations.length > 0) {
+      setShowVariantModal(true);
+    } else {
+      addToCart(product, 1);
+      setAdded(true);
+      Swal.fire({
+        title: 'Ditambahkan!',
+        text: `${product.name} berhasil ditambahkan ke keranjang.`,
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#ea580c',
+        timer: 2000,
+        timerProgressBar: true,
+      });
+      setTimeout(() => setAdded(false), 2000);
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (product.variations && product.variations.length > 0) {
+      setShowVariantModal(true);
+    } else {
+      addToCart(product, 1);
+      navigate('/checkout');
+    }
   };
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
@@ -110,10 +123,13 @@ export default function ProductCard({ product }: ProductCardProps) {
         <>
           <Link to={`/product/${product.id}`} className="block relative aspect-square overflow-hidden bg-gray-100">
             <img
-              src={product.images[0]}
+              src={product.images[0] || '/assets/uploads/products/placeholder.svg'}
               alt={`Gambar ${product.name}`}
               className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
+              }}
             />
             {product.stock < 20 && (
               <span className="absolute top-2 left-2 bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded z-10">
@@ -167,6 +183,32 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         </>
       )}
+
+      {/* Variant Selection Modal */}
+      <VariantSelectionModal
+        product={product}
+        isOpen={showVariantModal}
+        onClose={() => setShowVariantModal(false)}
+        onAddToCart={(qty, variant) => {
+          addToCart(product, qty, variant);
+          setAdded(true);
+          const variantText = variant ? ` (${variant.type}: ${variant.option})` : '';
+          Swal.fire({
+            title: 'Ditambahkan!',
+            text: `${product.name}${variantText} berhasil ditambahkan ke keranjang.`,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ea580c',
+            timer: 2000,
+            timerProgressBar: true,
+          });
+          setTimeout(() => setAdded(false), 2000);
+        }}
+        onBuyNow={(qty, variant) => {
+          addToCart(product, qty, variant);
+          navigate('/checkout');
+        }}
+      />
     </div>
   );
 }

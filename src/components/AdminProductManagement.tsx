@@ -67,14 +67,17 @@ export default function AdminProductManagement() {
     } else {
       const newProduct: Product = {
         id: `prod-${Date.now()}`,
+        sku: `NEW-${Date.now()}`,
         name: formData.name,
         price: formData.price,
         stock: formData.stock,
         categoryId: formData.categoryId,
         description: formData.description,
         rating: 0,
-        reviews: 0,
-        images: [formData.images]
+        reviews: [] as unknown as [userName: string, userImage: string, rating: number, comment: string, createdAt: Date],
+        images: [formData.images],
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       setProducts(prev => [newProduct, ...prev]);
       showToast('Produk baru berhasil ditambahkan', 'success');

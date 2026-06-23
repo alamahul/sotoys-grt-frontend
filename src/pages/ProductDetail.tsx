@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ShoppingCart, Heart, Star, ChevronRight, Check } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { mockProducts } from '../data/mock';
 import { Product } from '../types';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
+import VariantSelectionModal from '../components/VariantSelectionModal';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +18,8 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<Record<string, string>>({});
+  const [showVariantModal, setShowVariantModal] = useState(false);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { addToCart } = useCart();
   const { showToast } = useToast();
@@ -28,7 +32,6 @@ export default function ProductDetail() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
-    // Simulate API fetch
     setLoading(true);
     setTimeout(() => {
       const foundProduct = mockProducts.find(p => p.id === id);
@@ -42,13 +45,9 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-gray-50 py-8 animate-pulse">
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Breadcrumb Skeleton */}
           <div className="h-4 bg-gray-200 rounded w-2/3 sm:w-64 mb-6"></div>
-
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8">
             <div className="flex flex-col md:flex-row gap-8 lg:gap-12">
-
-              {/* Image Gallery Skeleton */}
               <div className="w-full md:w-1/2 lg:w-5/12 flex-shrink-0">
                 <div className="aspect-square bg-gray-200 rounded-lg mb-4"></div>
                 <div className="flex space-x-3 pb-2 overflow-x-hidden">
@@ -57,23 +56,14 @@ export default function ProductDetail() {
                   ))}
                 </div>
               </div>
-
-              {/* Product Info Skeleton */}
               <div className="w-full md:w-1/2 lg:w-7/12 flex flex-col pt-2">
-                {/* Title */}
                 <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
                 <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
-
-                {/* Rating line */}
                 <div className="flex items-center space-x-4 mb-6">
                   <div className="h-5 bg-gray-200 rounded w-24"></div>
                   <div className="h-5 bg-gray-200 rounded w-16"></div>
                 </div>
-
-                {/* Price */}
                 <div className="h-10 bg-gray-200 rounded w-48 mb-6"></div>
-
-                {/* Actions Box */}
                 <div className="border-t border-b border-gray-100 py-6 mb-6">
                   <div className="h-6 bg-gray-200 rounded w-40 mb-6"></div>
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -82,8 +72,6 @@ export default function ProductDetail() {
                     <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
                   </div>
                 </div>
-
-                {/* Description */}
                 <div>
                   <div className="h-6 bg-gray-200 rounded w-40 mb-4"></div>
                   <div className="space-y-3">
@@ -123,19 +111,58 @@ export default function ProductDetail() {
     }).format(amount);
   };
 
-  const handleAddToCart = () => {
+  const getSelectedVariantString = () => {
+    return Object.entries(selectedVariant)
+      .map(([type, option]) => `${type}: ${option}`)
+      .join(' | ');
+  };
+
+  const handleVariantSelect = (type: string, option: string) => {
+    setSelectedVariant(prev => ({ ...prev, [type]: option }));
+  };
+
+  const confirmAddToCart = () => {
+    const variant = product?.variations && Object.keys(selectedVariant).length > 0
+      ? { 
+          type: product.variations[0]?.variation_type || '', 
+          option: Object.values(selectedVariant)[0] || '' 
+        }
+      : null;
+    
     if (product) {
-      addToCart(product, quantity);
+      addToCart(product, quantity, variant);
       setAddedToCart(true);
-      showToast(`${product.name} ditambahkan ke keranjang`, 'success');
+      const variantText = variant ? ` (${getSelectedVariantString()})` : '';
+      Swal.fire({
+        title: 'Ditambahkan!',
+        text: `${product.name}${variantText} berhasil ditambahkan ke keranjang.`,
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#ea580c',
+        timer: 2000,
+        timerProgressBar: true,
+      });
       setTimeout(() => setAddedToCart(false), 2000);
     }
   };
 
+  const handleAddToCart = () => {
+    if (product?.variations && product.variations.length > 0) {
+      setShowVariantModal(true);
+    } else {
+      confirmAddToCart();
+    }
+  };
+
   const handleBuyNow = () => {
-    if (product) {
-      addToCart(product, quantity);
-      navigate('/checkout');
+    if (product?.variations && product.variations.length > 0) {
+      setShowVariantModal(true);
+    } else {
+      const variant = null;
+      if (product) {
+        addToCart(product, quantity, variant);
+        navigate('/checkout');
+      }
     }
   };
 
@@ -160,7 +187,7 @@ export default function ProductDetail() {
     setTimeout(() => {
       const newReview = {
         id: `r${Date.now()}`,
-        author: 'Pengguna', // Mocked user name
+        author: 'Pengguna',
         rating: newRating,
         comment: newComment,
         date: 'Baru saja'
@@ -184,7 +211,6 @@ export default function ProductDetail() {
         <meta name="description" content={`Beli ${product.name} hanya di SOTOYS. Harga terbaik: ${formatCurrency(product.price)}.`} />
       </Helmet>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
         <nav className="flex text-sm text-gray-500 mb-6" aria-label="Breadcrumb">
           <ol className="inline-flex items-center space-x-1 md:space-x-3">
             <li className="inline-flex items-center">
@@ -193,7 +219,7 @@ export default function ProductDetail() {
             <li>
               <div className="flex items-center">
                 <ChevronRight size={16} className="mx-1" />
-                <span className="hover:text-orange-600 cursor-pointer">Kategori</span>
+                <Link to="/catalog" className="hover:text-orange-600 cursor-pointer">Katalog</Link>
               </div>
             </li>
             <li aria-current="page">
@@ -207,14 +233,15 @@ export default function ProductDetail() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8">
           <div className="flex flex-col md:flex-row gap-8 lg:gap-12">
-
-            {/* Image Gallery */}
             <div className="w-full md:w-1/2 lg:w-5/12 flex-shrink-0">
               <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
                 <img
-                  src={product.images[activeImage] || product.images[0]}
+                  src={product.images[activeImage] || product.images[0] || '/assets/uploads/products/placeholder.svg'}
                   alt={product.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
+                  }}
                 />
               </div>
               <div className="flex space-x-3 overflow-x-auto pb-2">
@@ -224,13 +251,19 @@ export default function ProductDetail() {
                     onClick={() => setActiveImage(idx)}
                     className={`w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition-colors ${activeImage === idx ? 'border-orange-500' : 'border-transparent hover:border-gray-300'}`}
                   >
-                    <img src={img} alt={`${product.name} - ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img 
+                      src={img} 
+                      alt={`${product.name} - ${idx + 1}`} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
+                      }}
+                    />
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Product Info */}
             <div className="w-full md:w-1/2 lg:w-7/12 flex flex-col">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
 
@@ -250,8 +283,40 @@ export default function ProductDetail() {
                 {formatCurrency(product.price)}
               </div>
 
-              {/* Quantity and Actions */}
               <div className="border-t border-b border-gray-100 py-6 mb-6">
+                {product.variations && product.variations.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Varian Produk</h3>
+                    <div className="space-y-3">
+                      {product.variations.map((variation, idx) => (
+                        <div key={idx}>
+                          <span className="text-xs text-gray-500 block mb-1.5">{variation.variation_type}</span>
+                          <div className="flex flex-wrap gap-2">
+                            {variation.variation_options.map((option, optIdx) => (
+                              <button
+                                key={optIdx}
+                                onClick={() => handleVariantSelect(variation.variation_type, option.name)}
+                                className={`px-3 py-1.5 text-xs rounded-md border transition-all ${
+                                  selectedVariant[variation.variation_type] === option.name
+                                    ? 'border-orange-500 bg-orange-50 text-orange-600 font-medium'
+                                    : 'border-gray-300 hover:border-gray-400 bg-white text-gray-700'
+                                }`}
+                              >
+                                {option.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {Object.keys(selectedVariant).length > 0 && (
+                  <div className="text-xs text-gray-600 mb-3">
+                    Varian terpilih: <span className="font-medium text-gray-900">{getSelectedVariantString()}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center space-x-6 mb-6">
                   <span className="text-gray-700 font-medium">Atur Jumlah</span>
                   <div className="flex items-center border border-gray-300 rounded-md">
@@ -303,7 +368,6 @@ export default function ProductDetail() {
                 </div>
               </div>
 
-              {/* Description */}
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Deskripsi Produk</h3>
                 <div className="text-gray-600 leading-relaxed text-sm">
@@ -323,7 +387,6 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        {/* Reviews Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
           <h2 className="text-xl font-bold text-gray-900 mb-6">Ulasan Pembeli</h2>
 
@@ -339,7 +402,6 @@ export default function ProductDetail() {
             </div>
 
             <div className="flex-1 space-y-8">
-              {/* Review submit form */}
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
                 <h3 className="font-bold text-gray-900 mb-4">Tulis Ulasan</h3>
                 <form onSubmit={handleReviewSubmit}>
@@ -387,7 +449,6 @@ export default function ProductDetail() {
                 </form>
               </div>
 
-              {/* Reviews List */}
               <div className="space-y-6">
                 {reviews.map((review) => (
                   <div key={review.id} className="border-b border-gray-100 pb-6 last:border-0 last:pb-0">
@@ -409,8 +470,36 @@ export default function ProductDetail() {
           </div>
 
         </div>
-
       </main>
+
+      <VariantSelectionModal
+        product={product}
+        isOpen={showVariantModal}
+        onClose={() => setShowVariantModal(false)}
+        onAddToCart={(qty, variant) => {
+          if (product) {
+            addToCart(product, qty, variant);
+            setAddedToCart(true);
+            const variantText = variant ? ` (${variant.type}: ${variant.option})` : '';
+            Swal.fire({
+              title: 'Ditambahkan!',
+              text: `${product.name}${variantText} berhasil ditambahkan ke keranjang.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#ea580c',
+              timer: 2000,
+              timerProgressBar: true,
+            });
+            setTimeout(() => setAddedToCart(false), 2000);
+          }
+        }}
+        onBuyNow={(qty, variant) => {
+          if (product) {
+            addToCart(product, qty, variant);
+            navigate('/checkout');
+          }
+        }}
+      />
     </div>
   );
 }
