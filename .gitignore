@@ -8,4 +8,4 @@ coverage/
 !.env.example
 
 assets/uploads/*
-.kilo
+.kilo/
