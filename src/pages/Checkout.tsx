@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { Link, useNavigate } from 'react-router-dom';
-// TAMBAHAN: Menambahkan icon 'Tag' untuk UI Promo
 import { MapPin, Truck, CreditCard, ChevronRight, Check, Tag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { addCheckoutKeywords, incrementPopularSearch } from '../utils/search';
 
 const couriers = [
   { id: 'c1', name: 'SOTOYS Express', type: 'Reguler', price: 15000, est: '1-2 hari' },
@@ -173,7 +173,12 @@ export default function Checkout() {
 
   const handleCheckout = async () => {
     setIsProcessing(true);
-    // Simulate API call
+    const cartNames = cartItems.map(item => item.product.name);
+    const cartUniqueNames = Array.from(new Set(cartNames));
+
+    addCheckoutKeywords(cartUniqueNames);
+    cartUniqueNames.forEach(name => incrementPopularSearch(name));
+
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsProcessing(false);
     clearCart();

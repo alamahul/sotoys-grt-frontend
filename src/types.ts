@@ -25,6 +25,14 @@ export interface Variation {
   variation_options: VariationOption[];
 }
 
+export interface Review {
+  userName: string;
+  userImage: string;
+  rating: number;
+  comment: string;
+  createdAt: Date;
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -34,13 +42,7 @@ export interface Product {
   stock: number;
   categoryId: string;
   rating: number;
-  reviews: [
-    userName: string,
-    userImage: string,
-    rating: number,
-    comment: string,
-    createdAt: Date,
-  ]
+  reviews?: Review[];
   images: string[];
   variations?: Variation[];
   createdAt: Date;

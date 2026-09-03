@@ -212,7 +212,7 @@ export const mockProducts: Product[] = (rawProducts as any[]).map((item, index) 
     stock: item.stock || 0,
     rating: Math.floor(Math.random() * 3) + 3 as (3 | 4 | 5), // 3-5
     categoryId,
-    reviews: [] as unknown as [userName: string, userImage: string, rating: number, comment: string, createdAt: Date],
+    reviews: [],
     images: images.length > 0 ? images : ['/assets/uploads/products/placeholder.svg'],
     variations,
     createdAt: new Date(),

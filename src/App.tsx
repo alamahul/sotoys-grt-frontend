@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import Home from './pages/Home';
 import Catalog from './pages/Catalog';
+import Search from './pages/Search';
 import About from './pages/About';
 import Promo from './pages/Promo';
 import FAQ from './pages/info/FAQ';
@@ -90,6 +91,7 @@ export default function App() {
                       <Route path="/tracking" element={<OrderTracking />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
+                      <Route path="/search" element={<Search />} />
 
                       {/* Zone 2: Customer (Protected) */}
                       <Route element={<ProtectedRoute role="customer" />}>

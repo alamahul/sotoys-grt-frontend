@@ -1,29 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, ClipboardList, LogOut, Bell, LayoutDashboard, ChevronDown, Menu, X } from 'lucide-react';
+import { Search, ShoppingCart, User, ClipboardList, LogOut, Bell, LayoutDashboard, ChevronDown, Menu, X, Flame, Clock, ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { mockProducts } from '../data/mock';
 import Swal from 'sweetalert2';
+import {
+  getPopularSearches,
+  getSearchHistory,
+  getCheckoutKeywords,
+} from '../utils/search';
 
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const { totalItems } = useCart();
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const searchSuggestions = mockProducts.filter(p =>
-    searchQuery.trim().length > 0 &&
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ).slice(0, 5);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const matchedProducts = useMemo(() => {
+    if (debouncedQuery.trim().length === 0) return [];
+    const q = debouncedQuery.trim().toLowerCase();
+    return mockProducts.filter(p => p.name.toLowerCase().includes(q)).slice(0, 5);
+  }, [debouncedQuery]);
+
+  const popularSearches = useMemo(() => getPopularSearches().slice(0, 4), []);
+  const searchHistory = useMemo(() => getSearchHistory().slice(0, 3), []);
+  const checkoutKeywords = useMemo(() => getCheckoutKeywords().slice(0, 3), []);
+
+  const showDropdown = searchQuery.trim().length > 0 && (
+    matchedProducts.length > 0 ||
+    popularSearches.length > 0 ||
+    searchHistory.length > 0 ||
+    checkoutKeywords.length > 0
+  );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/?q=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+      setDebouncedQuery('');
     }
+  };
+
+  const handleSuggestionClick = (query: string) => {
+    setSearchQuery(query);
+    setDebouncedQuery(query);
+    navigate(`/search?q=${encodeURIComponent(query)}`);
   };
 
   const handleLogout = () => {
@@ -108,18 +141,78 @@ export default function Header() {
                 </button>
 
                 {/* Auto-suggest dropdown */}
-                {searchQuery.trim().length > 0 && searchSuggestions.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-1">
-                    {searchSuggestions.map(product => (
-                      <Link
-                        key={product.id}
-                        to={`/product/${product.id}`}
-                        onClick={() => setSearchQuery('')}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                      >
-                        {product.name}
-                      </Link>
-                    ))}
+                {showDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-1 max-h-96 overflow-y-auto">
+                    {matchedProducts.length > 0 && (
+                      <div>
+                        <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk Cocok</div>
+                        {matchedProducts.map(product => (
+                          <Link
+                            key={product.id}
+                            to={`/product/${product.id}`}
+                            onClick={() => setSearchQuery('')}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                          >
+                            {product.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    {popularSearches.length > 0 && (
+                      <div className={matchedProducts.length > 0 ? 'border-t border-gray-100 mt-1 pt-1' : ''}>
+                        <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                          <Flame size={12} /> Pencarian Populer
+                        </div>
+                        {popularSearches.map(item => (
+                          <button
+                            key={item.query}
+                            type="button"
+                            onClick={() => handleSuggestionClick(item.query)}
+                            className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors flex items-center justify-between"
+                          >
+                            <span>{item.query}</span>
+                            <span className="text-xs text-gray-400">{item.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {searchHistory.length > 0 && (
+                      <div className={matchedProducts.length > 0 || popularSearches.length > 0 ? 'border-t border-gray-100 mt-1 pt-1' : ''}>
+                        <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                          <Clock size={12} /> Riwayat
+                        </div>
+                        {searchHistory.map(item => (
+                          <button
+                            key={item.query + item.timestamp}
+                            type="button"
+                            onClick={() => handleSuggestionClick(item.query)}
+                            className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                          >
+                            {item.query}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {checkoutKeywords.length > 0 && (
+                      <div className={matchedProducts.length > 0 || popularSearches.length > 0 || searchHistory.length > 0 ? 'border-t border-gray-100 mt-1 pt-1' : ''}>
+                        <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                          <ShoppingBag size={12} /> Dari Checkout
+                        </div>
+                        {checkoutKeywords.map((keyword, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleSuggestionClick(keyword)}
+                            className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                          >
+                            {keyword}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </form>
@@ -228,21 +321,81 @@ export default function Header() {
             <button type="submit" aria-label="Search" className="absolute right-0 top-0 mt-2 mr-3 text-gray-400 hover:text-orange-500 transition-colors">
               <Search size={18} />
             </button>
-            {/* Auto-suggest dropdown mobile */}
-            {searchQuery.trim().length > 0 && searchSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-1">
-                {searchSuggestions.map(product => (
-                  <Link
-                    key={product.id}
-                    to={`/product/${product.id}`}
-                    onClick={() => setSearchQuery('')}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                  >
-                    {product.name}
-                  </Link>
-                ))}
-              </div>
-            )}
+             {/* Auto-suggest dropdown mobile */}
+             {showDropdown && (
+               <div className="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-1 max-h-96 overflow-y-auto">
+                 {matchedProducts.length > 0 && (
+                   <div>
+                     <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk Cocok</div>
+                     {matchedProducts.map(product => (
+                       <Link
+                         key={product.id}
+                         to={`/product/${product.id}`}
+                         onClick={() => setSearchQuery('')}
+                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                       >
+                         {product.name}
+                       </Link>
+                     ))}
+                   </div>
+                 )}
+
+                 {popularSearches.length > 0 && (
+                   <div className={matchedProducts.length > 0 ? 'border-t border-gray-100 mt-1 pt-1' : ''}>
+                     <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                       <Flame size={12} /> Pencarian Populer
+                     </div>
+                     {popularSearches.map(item => (
+                       <button
+                         key={item.query}
+                         type="button"
+                         onClick={() => handleSuggestionClick(item.query)}
+                         className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors flex items-center justify-between"
+                       >
+                         <span>{item.query}</span>
+                         <span className="text-xs text-gray-400">{item.count}</span>
+                       </button>
+                     ))}
+                   </div>
+                 )}
+
+                 {searchHistory.length > 0 && (
+                   <div className={matchedProducts.length > 0 || popularSearches.length > 0 ? 'border-t border-gray-100 mt-1 pt-1' : ''}>
+                     <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                       <Clock size={12} /> Riwayat
+                     </div>
+                     {searchHistory.map(item => (
+                       <button
+                         key={item.query + item.timestamp}
+                         type="button"
+                         onClick={() => handleSuggestionClick(item.query)}
+                         className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                       >
+                         {item.query}
+                       </button>
+                     ))}
+                   </div>
+                 )}
+
+                 {checkoutKeywords.length > 0 && (
+                   <div className={matchedProducts.length > 0 || popularSearches.length > 0 || searchHistory.length > 0 ? 'border-t border-gray-100 mt-1 pt-1' : ''}>
+                     <div className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                       <ShoppingBag size={12} /> Dari Checkout
+                     </div>
+                     {checkoutKeywords.map((keyword, idx) => (
+                       <button
+                         key={idx}
+                         type="button"
+                         onClick={() => handleSuggestionClick(keyword)}
+                         className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                       >
+                         {keyword}
+                       </button>
+                     ))}
+                   </div>
+                 )}
+               </div>
+             )}
           </form>
         </div>
       </header>

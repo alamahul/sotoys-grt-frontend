@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, type Transition } from 'motion/react';
 
 // Simple auto‑rotating carousel for hero images
 const heroImages = [
@@ -8,7 +8,7 @@ const heroImages = [
   'https://images.unsplash.com/photo-1613771404721-1f92d799e49f?q=80&w=869&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1200&auto=format&fit=crop&q=80',
 ];
 
-const transition = { duration: 0.8, ease: 'easeInOut' };
+const transition: Transition = { duration: 0.8, ease: 'easeInOut' };
 
 export default function HeroCarousel() {
   const [index, setIndex] = useState(0);
@@ -40,7 +40,7 @@ export default function HeroCarousel() {
           className="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, ...transition }}
+          transition={{ delay: 0.5, duration: 0.8, ease: 'easeInOut' }}
         >
           Selamat Datang di SOTOYS GARUT!
         </motion.h1>

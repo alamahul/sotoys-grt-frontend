@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ToyBrick, PuzzlePiece, Gamepad } from 'lucide-react';
+import { ToyBrick, Puzzle, Gamepad } from 'lucide-react';
 
 // Simple set of icons that float around within the parent container
 const icons = [
   { Component: ToyBrick, delay: 0 },
-  { Component: PuzzlePiece, delay: 2 },
+  { Component: Puzzle, delay: 2 },
   { Component: Gamepad, delay: 4 },
 ];
 

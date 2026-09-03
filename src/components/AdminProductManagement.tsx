@@ -74,7 +74,7 @@ export default function AdminProductManagement() {
         categoryId: formData.categoryId,
         description: formData.description,
         rating: 0,
-        reviews: [] as unknown as [userName: string, userImage: string, rating: number, comment: string, createdAt: Date],
+        reviews: [],
         images: [formData.images],
         createdAt: new Date(),
         updatedAt: new Date()

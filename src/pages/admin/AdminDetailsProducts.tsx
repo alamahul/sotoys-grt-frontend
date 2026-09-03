@@ -89,7 +89,7 @@ export default function AdminDetailsProducts() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 flex items-center"><Star size={18} className="mr-2 text-gray-400" /> Rating</span>
                   <span className="font-bold text-gray-900 flex items-center">
-                    {product.rating ? product.rating : "Belum ada rating"} <span className="text-gray-400 text-xs ml-1">({product.reviews} ulasan)</span>
+                    {product.rating ? product.rating : "Belum ada rating"} <span className="text-gray-400 text-xs ml-1">({product.reviews?.length || 0} ulasan)</span>
                   </span>
                 </div>
               </div>
