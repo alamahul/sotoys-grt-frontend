@@ -6,6 +6,7 @@ import { Product } from '../types';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
+import { getImageUrl, handleImageError } from '../utils/api';
 import VariantSelectionModal from './VariantSelectionModal';
 
 interface ProductCardProps {
@@ -121,23 +122,24 @@ export default function ProductCard({ product }: ProductCardProps) {
       ) : (
         // Heavy actual content loaded lazily
         <>
-          <Link to={`/product/${product.id}`} className="block relative aspect-square overflow-hidden bg-gray-100">
+          <Link to={`/product/${product.slug || product.id}`} className="block relative aspect-square overflow-hidden bg-gray-100">
             <img
-              src={product.images[0] || '/assets/uploads/products/placeholder.svg'}
+              src={getImageUrl(product.images[0])}
               alt={`Gambar ${product.name}`}
               className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
-              }}
+              onError={handleImageError}
             />
-            {product.stock < 20 && (
-              <span className="absolute top-2 left-2 bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded z-10">
+            {product.stock <= 0 ? (
+              <span className="absolute bottom-2 left-2 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded">
+                Stok Habis
+              </span>
+            ) : product.stock < 5 ? (
+              <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-xs font-semibold px-2 py-1 rounded">
                 Sisa {product.stock}
               </span>
-            )}
+            ) : null}
           </Link>
-
           <button
             onClick={handleWishlistToggle}
             className="absolute top-2 right-2 p-2 bg-white rounded-full text-gray-400 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm z-10 transition-colors"
@@ -147,7 +149,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </button>
 
           <div className="p-4 flex flex-col flex-grow">
-            <Link to={`/product/${product.id}`}>
+            <Link to={`/product/${product.slug || product.id}`}>
               <h3 className="text-gray-800 font-medium text-sm line-clamp-2 hover:text-orange-600 transition-colors">
                 {product.name}
               </h3>
@@ -161,14 +163,22 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
             <button
               onClick={handleAddToCart}
+              disabled={product.stock <= 0}
               className={`w-full mt-3 flex items-center justify-center space-x-2 font-medium py-2 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-200 ${
-                added
+                product.stock <= 0
+                  ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                  : added
                   ? 'bg-green-500 text-white border border-green-500 hover:bg-green-600'
-                  : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'
+                  : 'bg-white text-orange-600 border border-orange-600 hover:bg-orange-50 cursor-pointer'
               }`}
               aria-label={`Tambah ${product.name} ke keranjang`}
             >
-              {added ? (
+              {product.stock <= 0 ? (
+                <>
+                  <ShoppingCart size={18} />
+                  <span>Stok Habis</span>
+                </>
+              ) : added ? (
                 <>
                   <Check size={18} />
                   <span>Ditambahkan</span>

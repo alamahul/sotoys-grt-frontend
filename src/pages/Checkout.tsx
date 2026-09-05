@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { addCheckoutKeywords, incrementPopularSearch } from '../utils/search';
+import api from '../utils/api';
 
 const couriers = [
   { id: 'c1', name: 'SOTOYS Express', type: 'Reguler', price: 15000, est: '1-2 hari' },
@@ -173,32 +174,73 @@ export default function Checkout() {
 
   const handleCheckout = async () => {
     setIsProcessing(true);
-    const cartNames = cartItems.map(item => item.product.name);
-    const cartUniqueNames = Array.from(new Set(cartNames));
+    try {
+      const selectedCourierObj = couriers.find(c => c.id === selectedCourier);
+      const selectedAddressObj = userAddresses.find(a => a.id === selectedAddress);
 
-    addCheckoutKeywords(cartUniqueNames);
-    cartUniqueNames.forEach(name => incrementPopularSearch(name));
+      const payload = {
+        addressId: selectedAddress || undefined,
+        shippingAddress: selectedAddressObj
+          ? `${selectedAddressObj.recipientName} (${selectedAddressObj.phone}), ${selectedAddressObj.details}, ${selectedAddressObj.city}, ${selectedAddressObj.province} ${selectedAddressObj.postalCode}`
+          : undefined,
+        courier: selectedCourierObj ? `${selectedCourierObj.name} (${selectedCourierObj.type})` : 'SOTOYS Express',
+        shippingCost,
+        paymentMethod: 'Transfer Bank (BCA)',
+        promoCode: appliedPromo?.code || undefined,
+        totalAmount: total,
+        items: cartItems.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          unitPrice: item.product.price,
+          subtotal: item.product.price * item.quantity,
+        })),
+      };
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsProcessing(false);
-    clearCart();
-    Swal.fire({
-      title: 'Pembayaran Berhasil!',
-      text: 'Pesanan Anda telah berhasil dibuat. Terima kasih sudah berbelanja di SOTOYS GARUT!',
-      icon: 'success',
-      showCancelButton: true,
-      confirmButtonText: 'Lihat Pesanan',
-      cancelButtonText: 'Kembali ke Katalog',
-      confirmButtonColor: '#ea580c',
-      cancelButtonColor: '#6b7280',
-      reverseButtons: true,
-    }).then((result) => {
-      if (result.isConfirmed) {
-        navigate('/customer/orders');
-      } else {
-        navigate('/catalog');
+      const res = await api.post('/orders/checkout', payload);
+      const createdOrderId = res?.order?.id;
+
+      const cartNames = cartItems.map(item => item.product.name);
+      const cartUniqueNames = Array.from(new Set(cartNames));
+      addCheckoutKeywords(cartUniqueNames);
+      cartUniqueNames.forEach(name => incrementPopularSearch(name));
+
+      clearCart();
+
+      Swal.fire({
+        title: 'Pesanan Berhasil Dibuat!',
+        text: 'Pesanan Anda telah dicatat. Silakan lakukan pembayaran agar pesanan Anda dapat segera kami proses & kirim.',
+        icon: 'success',
+        showCancelButton: true,
+        confirmButtonText: 'Bayar Sekarang',
+        cancelButtonText: 'Daftar Pesanan',
+        confirmButtonColor: '#ea580c',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true,
+      }).then((result) => {
+        if (result.isConfirmed) {
+          if (createdOrderId) {
+            navigate(`/customer/orders/${createdOrderId}?pay=true`);
+          } else {
+            navigate('/customer/orders');
+          }
+        } else {
+          navigate('/customer/orders');
+        }
+      });
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      if (err.message && (err.message.includes('Sesi Anda telah berakhir') || err.message.includes('token') || err.message.includes('401'))) {
+        return;
       }
-    });
+      Swal.fire({
+        title: 'Gagal Membuat Pesanan',
+        text: err.message || 'Terjadi kesalahan saat memproses pesanan Anda. Silakan coba lagi.',
+        icon: 'error',
+        confirmButtonColor: '#ea580c',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (cartItems.length === 0 && !isProcessing) {

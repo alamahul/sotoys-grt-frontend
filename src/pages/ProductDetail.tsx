@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ShoppingCart, Heart, Star, ChevronRight, Check } from 'lucide-react';
+import { ShoppingCart, Heart, Star, ChevronRight, ChevronLeft, Check, AlertTriangle } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { mockProducts } from '../data/mock';
+import api, { normalizeProduct, getImageUrl, handleImageError } from '../utils/api';
 import { Product } from '../types';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
@@ -31,14 +32,51 @@ export default function ProductDetail() {
   const [newComment, setNewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
+  // Combine base product images + all variation option images into the gallery
+  const allGalleryImages = React.useMemo(() => {
+    if (!product) return [];
+    const list = [...(product.images || [])];
+    if (product.variations) {
+      product.variations.forEach(v => {
+        v.variation_options?.forEach(opt => {
+          if (opt.image && !list.includes(opt.image)) {
+            list.push(opt.image);
+          }
+        });
+      });
+    }
+    return list.length > 0 ? list : ['/assets/uploads/products/placeholder.svg'];
+  }, [product]);
+
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
-    setTimeout(() => {
-      const foundProduct = mockProducts.find(p => p.id === id);
-      setProduct(foundProduct || null);
-      setLoading(false);
-      window.scrollTo(0, 0);
-    }, 500);
+
+    const loadProduct = async () => {
+      try {
+        const res = await api.get(`/products/${id}`);
+        if (res && res.product && isMounted) {
+          setProduct(normalizeProduct(res.product));
+          setLoading(false);
+          window.scrollTo(0, 0);
+          return;
+        }
+      } catch (err) {
+        console.warn('Backend product detail fetch failed, trying mock:', err);
+      }
+
+      if (isMounted) {
+        const foundProduct = mockProducts.find(p => p.id === id || (p as any).slug === id);
+        setProduct(foundProduct ? normalizeProduct(foundProduct) : null);
+        setLoading(false);
+        window.scrollTo(0, 0);
+      }
+    };
+
+    loadProduct();
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   if (loading) {
@@ -117,8 +155,14 @@ export default function ProductDetail() {
       .join(' | ');
   };
 
-  const handleVariantSelect = (type: string, option: string) => {
-    setSelectedVariant(prev => ({ ...prev, [type]: option }));
+  const handleVariantSelect = (type: string, optionName: string, optionImage?: string | null) => {
+    setSelectedVariant(prev => ({ ...prev, [type]: optionName }));
+    if (optionImage) {
+      const idx = allGalleryImages.findIndex(img => img === optionImage);
+      if (idx !== -1) {
+        setActiveImage(idx);
+      }
+    }
   };
 
   const confirmAddToCart = () => {
@@ -146,17 +190,59 @@ export default function ProductDetail() {
     }
   };
 
+  const isAllVariantsSelected = () => {
+    if (!product?.variations || product.variations.length === 0) return true;
+    return product.variations.every(v => Boolean(selectedVariant[v.variation_type]));
+  };
+
   const handleAddToCart = () => {
+    if (!product) return;
+    if (product.stock <= 0) {
+      Swal.fire({
+        title: 'Stok Habis!',
+        text: `Maaf, stok untuk produk "${product.name}" saat ini sedang kosong.`,
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#ea580c',
+      });
+      return;
+    }
     if (product?.variations && product.variations.length > 0) {
-      setShowVariantModal(true);
+      if (isAllVariantsSelected()) {
+        confirmAddToCart();
+      } else {
+        setShowVariantModal(true);
+      }
     } else {
       confirmAddToCart();
     }
   };
 
   const handleBuyNow = () => {
+    if (!product) return;
+    if (product.stock <= 0) {
+      Swal.fire({
+        title: 'Stok Habis!',
+        text: `Maaf, stok untuk produk "${product.name}" saat ini sedang kosong.`,
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#ea580c',
+      });
+      return;
+    }
     if (product?.variations && product.variations.length > 0) {
-      setShowVariantModal(true);
+      if (isAllVariantsSelected()) {
+        const variant = {
+          type: product.variations[0]?.variation_type || '',
+          option: Object.values(selectedVariant)[0] || ''
+        };
+        if (product) {
+          addToCart(product, quantity, variant);
+          navigate('/checkout');
+        }
+      } else {
+        setShowVariantModal(true);
+      }
     } else {
       const variant = null;
       if (product) {
@@ -231,51 +317,108 @@ export default function ProductDetail() {
           </ol>
         </nav>
 
+        {/* Product Status Alert (If not published) */}
+        {product.status && product.status !== 'published' && (
+          <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3.5 shadow-2xs ${
+            product.status === 'draft' ? 'bg-amber-50 border-amber-200 text-amber-900' :
+            product.status === 'archived' ? 'bg-purple-50 border-purple-200 text-purple-900' :
+            'bg-gray-100 border-gray-200 text-gray-800'
+          }`}>
+            <AlertTriangle className="shrink-0 text-orange-600" size={24} />
+            <div>
+              <h4 className="font-bold text-sm">
+                {product.status === 'draft' && 'Perhatian: Produk ini Masih Berstatus Draf'}
+                {product.status === 'non-published' && 'Perhatian: Produk ini Sedang Diturunkan / Non-Published'}
+                {product.status === 'archived' && 'Perhatian: Produk ini Telah Diarsipkan'}
+              </h4>
+              <p className="text-xs opacity-85 mt-0.5">
+                {product.status === 'draft' && 'Produk ini belum resmi diterbitkan untuk publik dan sementara tidak dapat dipesan.'}
+                {product.status === 'non-published' && 'Produk ini disembunyikan sementara dari katalog toko dan tidak dapat dibeli.'}
+                {product.status === 'archived' && 'Produk ini sudah tidak dijual lagi dan disimpan hanya sebagai arsip catatan pesanan.'}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8">
           <div className="flex flex-col md:flex-row gap-8 lg:gap-12">
             <div className="w-full md:w-1/2 lg:w-5/12 flex-shrink-0">
-              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
+              <div className="aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-4 relative group shadow-xs border border-gray-100">
                 <img
-                  src={product.images[activeImage] || product.images[0] || '/assets/uploads/products/placeholder.svg'}
+                  src={getImageUrl(allGalleryImages[activeImage] || allGalleryImages[0], 'detail')}
                   alt={product.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
-                  }}
+                  className="w-full h-full object-cover transition-all duration-300"
+                  onError={handleImageError}
                 />
-              </div>
-              <div className="flex space-x-3 overflow-x-auto pb-2">
-                {product.images.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveImage(idx)}
-                    className={`w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition-colors ${activeImage === idx ? 'border-orange-500' : 'border-transparent hover:border-gray-300'}`}
-                  >
-                    <img 
-                      src={img} 
-                      alt={`${product.name} - ${idx + 1}`} 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
+
+                {allGalleryImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveImage(prev => (prev > 0 ? prev - 1 : allGalleryImages.length - 1));
                       }}
-                    />
-                  </button>
-                ))}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white text-gray-800 shadow-md transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveImage(prev => (prev < allGalleryImages.length - 1 ? prev + 1 : 0));
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white text-gray-800 shadow-md transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
               </div>
+
+              {/* Thumbnail Selector */}
+              {allGalleryImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  {allGalleryImages.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImage(idx)}
+                      className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${
+                        activeImage === idx ? 'border-orange-500 ring-2 ring-orange-200' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <img 
+                        src={getImageUrl(img, 'thumb')} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                        loading="lazy"
+                        onError={handleImageError}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="w-full md:w-1/2 lg:w-7/12 flex flex-col">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
 
-              <div className="flex items-center space-x-4 mb-4">
+              <div className="flex flex-wrap items-center gap-y-2 gap-x-4 mb-4 text-sm text-gray-500">
                 <div className="flex items-center">
                   <Star className="text-yellow-400 fill-current" size={18} />
                   <span className="ml-1 font-bold text-gray-700">4.8</span>
                   <span className="mx-2 text-gray-300">|</span>
-                  <span className="text-gray-500 text-sm">240 Terjual</span>
+                  <span>240 Terjual</span>
                 </div>
-                <div className="text-gray-500 text-sm">
-                  Kondisi: <span className="font-medium text-gray-800">Baru</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span>Kategori: <strong className="text-gray-800">{product.category?.name || 'Mainan Anak'}</strong></span>
+                  <span>•</span>
+                  <span>Kondisi: <strong className="text-gray-800">{product.condition || 'Baru'}</strong></span>
+                  <span>•</span>
+                  <span>Berat: <strong className="text-gray-800">{product.weight || 200}g</strong></span>
+                  <span>•</span>
+                  <span>SKU: <span className="font-mono text-xs text-gray-700">{product.sku}</span></span>
                 </div>
               </div>
 
@@ -285,26 +428,37 @@ export default function ProductDetail() {
 
               <div className="border-t border-b border-gray-100 py-6 mb-6">
                 {product.variations && product.variations.length > 0 && (
-                  <div className="mb-4">
+                  <div className="mb-5">
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Varian Produk</h3>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {product.variations.map((variation, idx) => (
                         <div key={idx}>
-                          <span className="text-xs text-gray-500 block mb-1.5">{variation.variation_type}</span>
-                          <div className="flex flex-wrap gap-2">
-                            {variation.variation_options.map((option, optIdx) => (
-                              <button
-                                key={optIdx}
-                                onClick={() => handleVariantSelect(variation.variation_type, option.name)}
-                                className={`px-3 py-1.5 text-xs rounded-md border transition-all ${
-                                  selectedVariant[variation.variation_type] === option.name
-                                    ? 'border-orange-500 bg-orange-50 text-orange-600 font-medium'
-                                    : 'border-gray-300 hover:border-gray-400 bg-white text-gray-700'
-                                }`}
-                              >
-                                {option.name}
-                              </button>
-                            ))}
+                          <span className="text-xs text-gray-500 block mb-1.5 font-medium">{variation.variation_type}</span>
+                          <div className="flex flex-wrap gap-2.5">
+                            {variation.variation_options.map((option, optIdx) => {
+                              const isSelected = selectedVariant[variation.variation_type] === option.name;
+                              return (
+                                <button
+                                  key={optIdx}
+                                  onClick={() => handleVariantSelect(variation.variation_type, option.name, option.image)}
+                                  className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs rounded-xl border-2 transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'border-orange-600 bg-orange-50 text-orange-600 font-bold shadow-xs'
+                                      : 'border-gray-200 hover:border-orange-200 bg-white text-gray-700 hover:bg-orange-50/20'
+                                  }`}
+                                >
+                                  {option.image && (
+                                    <img
+                                      src={getImageUrl(option.image)}
+                                      alt={option.name}
+                                      className="w-6 h-6 object-cover rounded-md shrink-0 border border-gray-200"
+                                      onError={handleImageError}
+                                    />
+                                  )}
+                                  <span>{option.name}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
@@ -322,41 +476,69 @@ export default function ProductDetail() {
                   <div className="flex items-center border border-gray-300 rounded-md">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-orange-600 transition"
-                      disabled={quantity <= 1}
+                      className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={quantity <= 1 || product.stock <= 0}
                     >-</button>
                     <input
                       type="number"
                       className="w-12 text-center border-x border-gray-300 py-1.5 text-gray-900 focus:outline-none"
-                      value={quantity}
+                      value={product.stock <= 0 ? 0 : quantity}
+                      disabled={product.stock <= 0}
                       onChange={(e) => setQuantity(Math.max(1, Math.min(product.stock, parseInt(e.target.value) || 1)))}
                     />
                     <button
                       onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                      className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-orange-600 transition"
-                      disabled={quantity >= product.stock}
+                      className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={quantity >= product.stock || product.stock <= 0}
                     >+</button>
                   </div>
                   <span className="text-sm text-gray-500">
-                    Tersisa <b>{product.stock}</b> buah
+                    {product.stock <= 0 ? (
+                      <span className="text-red-500 font-semibold">Stok Habis (0)</span>
+                    ) : (
+                      <>Tersisa <b>{product.stock}</b> buah</>
+                    )}
                   </span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleAddToCart}
-                    className={`flex-1 py-3 px-6 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 ${addedToCart
+                    disabled={Boolean(product.status && product.status !== 'published')}
+                    className={`flex-1 py-3 px-6 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all focus:outline-none ${
+                      product.status && product.status !== 'published'
+                        ? 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed'
+                        : product.stock <= 0
+                        ? 'bg-gray-100 border border-gray-300 text-gray-500 hover:bg-gray-200 cursor-pointer'
+                        : addedToCart
                         ? 'bg-green-500 text-white border-transparent'
                         : 'bg-orange-50 border border-orange-600 text-orange-600 hover:bg-orange-100'
-                      }`}
+                    }`}
                   >
-                    {addedToCart ? <><Check size={20} /> <span>Dimasukkan!</span></> : <><ShoppingCart size={20} /> <span>Masukkan Keranjang</span></>}
+                    {product.stock <= 0 ? (
+                      <><ShoppingCart size={20} /> <span>Stok Habis</span></>
+                    ) : addedToCart ? (
+                      <><Check size={20} /> <span>Dimasukkan!</span></>
+                    ) : (
+                      <><ShoppingCart size={20} /> <span>Masukkan Keranjang</span></>
+                    )}
                   </button>
                   <button
                     onClick={handleBuyNow}
-                    className="flex-1 py-3 px-6 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                    disabled={Boolean(product.status && product.status !== 'published')}
+                    className={`flex-1 py-3 px-6 rounded-lg font-bold transition-colors focus:outline-none ${
+                      product.status && product.status !== 'published'
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : product.stock <= 0
+                        ? 'bg-gray-300 text-gray-600 hover:bg-gray-400 cursor-pointer'
+                        : 'bg-orange-600 text-white hover:bg-orange-700'
+                    }`}
                   >
-                    Beli Langsung
+                    {product.status && product.status !== 'published'
+                      ? 'Tidak Dapat Dibeli'
+                      : product.stock <= 0
+                      ? 'Stok Habis'
+                      : 'Beli Langsung'}
                   </button>
                   <button
                     onClick={handleWishlistToggle}
@@ -370,16 +552,8 @@ export default function ProductDetail() {
 
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Deskripsi Produk</h3>
-                <div className="text-gray-600 leading-relaxed text-sm">
-                  {product.description}
-                  <br /><br />
-                  <b>Spesifikasi:</b>
-                  <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>SKU: {product.sku}</li>
-                    <li>Label: SNI (Standar Nasional Indonesia)</li>
-                    <li>Rekomendasi Usia: 3 Tahun ke atas</li>
-                    <li>Material: Plastik / Kayu berkualitas tinggi aman untuk anak</li>
-                  </ul>
+                <div className="text-gray-600 leading-relaxed text-sm whitespace-pre-line">
+                  {product.description || 'Tidak ada deskripsi rinci untuk produk ini.'}
                 </div>
               </div>
 

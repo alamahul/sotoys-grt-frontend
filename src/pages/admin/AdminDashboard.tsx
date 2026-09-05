@@ -6,6 +6,7 @@ import {
 import { TrendingUp, Users, ShoppingBag, DollarSign, ChevronDown, Download, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import AdminCloudinaryMetrics from '../../components/AdminCloudinaryMetrics';
 
 const monthlyRevenue = [
   { name: 'Jan', revenue: 45000000 },
@@ -232,6 +233,9 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Cloudinary Quota & Storage Details */}
+        <AdminCloudinaryMetrics />
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

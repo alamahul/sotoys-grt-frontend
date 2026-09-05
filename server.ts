@@ -34,36 +34,59 @@ async function startServer() {
   }, 60000); // Check every minute
 
 
-  // === API ENDPOINTS ===
-  
-  // Auth/OTP
-  app.post('/api/auth/register', (req, res) => {
-    res.json({ message: 'User registered, OTP sent' });
+  // === PROXY API REQUESTS TO BACKEND (Port 5000) ===
+  const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+  app.use('/api', async (req, res) => {
+    try {
+      const targetUrl = `${BACKEND_URL}${req.originalUrl}`;
+      const headers = { ...req.headers };
+      delete headers.host;
+
+      const fetchOptions: RequestInit = {
+        method: req.method,
+        headers: headers as Record<string, string>,
+      };
+
+      if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body && Object.keys(req.body).length > 0) {
+        fetchOptions.body = JSON.stringify(req.body);
+      }
+
+      const backendRes = await fetch(targetUrl, fetchOptions);
+      res.status(backendRes.status);
+      backendRes.headers.forEach((value, name) => {
+        if (name.toLowerCase() !== 'transfer-encoding') {
+          res.setHeader(name, value);
+        }
+      });
+      const data = await backendRes.arrayBuffer();
+      res.send(Buffer.from(data));
+    } catch (err: any) {
+      res.status(502).json({ message: 'Backend service unavailable on ' + BACKEND_URL, error: err.message });
+    }
   });
 
-  // Products
-  app.get('/api/products', (req, res) => {
-    res.json({ products: [] });
-  });
-
-  // Orders
-  app.post('/api/orders/checkout', (req, res) => {
-    // Process checkout
-    res.json({ message: 'Checkout successful', orderId: 'o2' });
-  });
-
-  // Admin Stats
-  app.get('/api/admin/stats', (req, res) => {
-    res.json({ 
-      totalSales: 15000000, 
-      activeOrders: 12,
-      newUsers: 50 
-    });
-  });
-
-  // Serve static assets (uploads, images, etc.) from the project root
+  // Serve static assets (uploads, images, etc.) from project and backend
   const assetsPath = path.join(process.cwd(), 'assets');
+  const backendAssetsPath = path.join(process.cwd(), '..', 'backend', 'public', 'assets');
   app.use('/assets', express.static(assetsPath));
+  app.use('/assets', express.static(backendAssetsPath));
+  app.use('/assets', async (req, res, next) => {
+    try {
+      const targetUrl = `${BACKEND_URL}${req.originalUrl}`;
+      const backendRes = await fetch(targetUrl);
+      if (backendRes.ok) {
+        res.status(backendRes.status);
+        backendRes.headers.forEach((value, name) => {
+          if (name.toLowerCase() !== 'transfer-encoding') {
+            res.setHeader(name, value);
+          }
+        });
+        const data = await backendRes.arrayBuffer();
+        return res.send(Buffer.from(data));
+      }
+    } catch (e) {}
+    next();
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {

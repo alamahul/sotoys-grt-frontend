@@ -40,6 +40,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminDetailsOrders from './pages/admin/AdminDetailsOrders';
+import AdminReturns from './pages/admin/AdminReturns';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminDetailsProducts from './pages/admin/AdminDetailsProducts';
 import AdminAnalysis from './pages/admin/AdminAnalysis';
@@ -118,6 +119,7 @@ export default function App() {
                         <Route path="/admin" element={<AdminDashboard />} />
                         <Route path="/admin/orders" element={<AdminOrders />} />
                         <Route path="/admin/orders/:id" element={<AdminDetailsOrders />} />
+                        <Route path="/admin/returns" element={<AdminReturns />} />
                         <Route path="/admin/products" element={<AdminProducts />} />
                         <Route path="/admin/products/:id" element={<AdminDetailsProducts />} />
                         <Route path="/admin/analysis" element={<AdminAnalysis />} />

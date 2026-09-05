@@ -6,24 +6,84 @@ import { mockProducts, mockCategories } from '../data/mock';
 import ProductCard from '../components/ProductCard';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import { Product } from '../types';
+import api, { normalizeProduct } from '../utils/api';
 
 export default function Promo() {
   const [searchParams] = useSearchParams();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(mockCategories);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('default');
   const [loading, setLoading] = useState(true);
+  const [allProducts, setAllProducts] = useState<Product[]>(mockProducts);
   const [promoProducts, setPromoProducts] = useState<Product[]>([]);
 
   const query = searchParams.get('q');
+  const catParam = searchParams.get('category') || searchParams.get('cat');
+
+  useEffect(() => {
+    api.get('/products')
+      .then(res => {
+        if (res?.products && Array.isArray(res.products) && res.products.length > 0) {
+          setAllProducts(
+            res.products
+              .map(normalizeProduct)
+              .filter(p => !p.status || p.status === 'published')
+          );
+        }
+      })
+      .catch(err => {
+        console.warn('Backend /products unavailable in Promo, using mockProducts fallback:', err);
+      });
+
+    api.get('/categories')
+      .then(res => {
+        if (res?.categories && Array.isArray(res.categories) && res.categories.length > 0) {
+          setCategories(res.categories);
+        }
+      })
+      .catch(err => {
+        console.warn('Backend /categories unavailable in Promo:', err);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (catParam) {
+      const match = categories.find(c => 
+        String(c.id).toLowerCase() === catParam.toLowerCase() ||
+        c.name.toLowerCase() === catParam.toLowerCase()
+      );
+      if (match) {
+        setSelectedCategoryId(match.id);
+      } else {
+        setSelectedCategoryId(catParam);
+      }
+    }
+  }, [catParam, categories]);
 
   useEffect(() => {
     setLoading(true);
     const timer = setTimeout(() => {
-      let filtered = mockProducts.filter(p => p.price > 100000);
+      let filtered = allProducts.filter(p => p.price > 100000 || p.rating >= 4);
+      if (filtered.length === 0) {
+        filtered = allProducts;
+      }
 
       if (selectedCategoryId) {
-        filtered = filtered.filter(p => p.categoryId === selectedCategoryId);
+        const activeCat = categories.find(c => String(c.id).toLowerCase() === String(selectedCategoryId).toLowerCase())
+          || mockCategories.find(c => c.id.toLowerCase() === String(selectedCategoryId).toLowerCase());
+
+        filtered = filtered.filter(p => {
+          if (p.categoryId && String(p.categoryId).toLowerCase() === String(selectedCategoryId).toLowerCase()) return true;
+          if (p.category?.id && String(p.category.id).toLowerCase() === String(selectedCategoryId).toLowerCase()) return true;
+          if (activeCat && p.category?.name && p.category.name.toLowerCase() === activeCat.name.toLowerCase()) return true;
+          if (p.category?.name && p.category.name.toLowerCase() === String(selectedCategoryId).toLowerCase()) return true;
+          const mockMatch = mockCategories.find(mc => mc.id === selectedCategoryId);
+          if (mockMatch && (p.categoryId === mockMatch.id || (p.category?.name && p.category.name.toLowerCase() === mockMatch.name.toLowerCase()))) {
+            return true;
+          }
+          return false;
+        });
       }
 
       if (query) {
@@ -40,10 +100,10 @@ export default function Promo() {
 
       setPromoProducts(filtered);
       setLoading(false);
-    }, 600);
+    }, 400);
 
     return () => clearTimeout(timer);
-  }, [selectedCategoryId, sortBy, query]);
+  }, [allProducts, selectedCategoryId, sortBy, query]);
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);

@@ -1,9 +1,11 @@
 import React from 'react';
 import { Heart, ShoppingCart, Trash2, ChevronLeft } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
 import { Link } from 'react-router-dom';
 import { mockProducts } from '../../data/mock';
+import { getImageUrl, handleImageError } from '../../utils/api';
 
 export default function CustomerWishlist() {
   const { wishlistItems, removeFromWishlist } = useWishlist();
@@ -12,7 +14,26 @@ export default function CustomerWishlist() {
   const wishlist = mockProducts.filter(p => wishlistItems.includes(p.id));
 
   const handleAddToCart = (product: any) => {
+    if (product.stock <= 0) {
+      Swal.fire({
+        title: 'Stok Habis!',
+        text: `Maaf, stok untuk produk "${product.name}" saat ini sedang kosong.`,
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#ea580c',
+      });
+      return;
+    }
     addToCart(product);
+    Swal.fire({
+      title: 'Ditambahkan!',
+      text: `${product.name} berhasil ditambahkan ke keranjang.`,
+      icon: 'success',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#ea580c',
+      timer: 2000,
+      timerProgressBar: true,
+    });
   };
 
   const formatCurrency = (amount: number) => {
@@ -50,20 +71,29 @@ export default function CustomerWishlist() {
                 >
                   <Trash2 size={16} />
                 </button>
-                <Link to={`/product/${item.id}`} className="block relative aspect-square overflow-hidden bg-gray-100">
-                  <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <Link to={`/product/${item.slug || item.id}`} className="block relative aspect-square overflow-hidden bg-gray-100">
+                  <img 
+                    src={getImageUrl(item.images[0])} 
+                    alt={item.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                    onError={handleImageError}
+                  />
                 </Link>
                 <div className="p-4 flex flex-col flex-grow">
-                  <Link to={`/product/${item.id}`} className="font-bold text-gray-900 hover:text-orange-600 line-clamp-2 mb-1">
+                  <Link to={`/product/${item.slug || item.id}`} className="font-bold text-gray-900 hover:text-orange-600 line-clamp-2 mb-1">
                     {item.name}
                   </Link>
                   <p className="text-lg font-bold text-orange-600 mb-4">{formatCurrency(item.price)}</p>
                   <div className="mt-auto">
                     <button
                       onClick={() => handleAddToCart(item)}
-                      className="w-full flex justify-center items-center py-2 px-4 bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white rounded-lg font-bold transition-colors"
+                      className={`w-full flex justify-center items-center py-2 px-4 rounded-lg font-bold transition-colors cursor-pointer ${
+                        item.stock <= 0
+                          ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                          : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white'
+                      }`}
                     >
-                      <ShoppingCart size={18} className="mr-2" /> Tambah ke Keranjang
+                      <ShoppingCart size={18} className="mr-2" /> {item.stock <= 0 ? 'Stok Habis' : 'Tambah ke Keranjang'}
                     </button>
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import { ShoppingBag, ArrowRight, ShieldCheck, Truck, Clock } from 'lucide-react
 import { useCart } from '../context/CartContext';
 import useSmartLoading from '../hooks/useSmartLoading';
 import { mockProducts } from '../data/mock';
+import api, { normalizeProduct, getImageUrl, handleImageError } from '../utils/api';
 import { Product } from '../types';
 import { motion } from 'motion/react';
 import TestimonialCarousel from '../components/TestimonialCarousel';
@@ -17,9 +18,18 @@ export default function LandingPage() {
   const [showVariantModal, setShowVariantModal] = useState(false);
 
   const fetchFeatured = async (): Promise<Product[]> => {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(mockProducts.slice(0, 4)), 300);
-    });
+    try {
+      const res = await api.get('/products');
+      if (res && Array.isArray(res.products) && res.products.length > 0) {
+        return res.products
+          .map(normalizeProduct)
+          .filter(p => !p.status || p.status === 'published')
+          .slice(0, 4);
+      }
+    } catch (err) {
+      console.warn('Backend unavailable, using mockProducts in Home:', err);
+    }
+    return mockProducts.filter(p => !p.status || p.status === 'published').slice(0, 4);
   };
 
   const { data: featuredProducts, showSkeleton } = useSmartLoading<Product[]>(fetchFeatured);
@@ -130,61 +140,66 @@ export default function LandingPage() {
                       HABIS
                     </div>
                   )}
-<div className="relative aspect-square overflow-hidden bg-gray-100">
-                     <img 
-                       src={product.images[0] || '/assets/uploads/products/placeholder.svg'} 
-                       alt={product.name} 
-                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                       onError={(e) => {
-                         (e.target as HTMLImageElement).src = '/assets/uploads/products/placeholder.svg';
-                       }}
-                     />
+                  <div className="relative aspect-square overflow-hidden bg-gray-100">
+                    <img 
+                      src={getImageUrl(product.images[0])} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      onError={handleImageError}
+                    />
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <Link to={`/product/${product.id}`} className="px-6 py-2 bg-white text-gray-900 font-bold rounded-full transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                      <Link to={`/product/${product.slug || product.id}`} className="px-6 py-2 bg-white text-gray-900 font-bold rounded-full transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
                         Lihat Detail
                       </Link>
                     </div>
                   </div>
                   <div className="p-5 flex flex-col flex-grow">
-                    <span className="text-xs font-bold text-orange-600 tracking-wider uppercase mb-2">{product.categoryId}</span>
-                    <Link to={`/product/${product.id}`} className="block flex-grow">
+                    <Link to={`/product/${product.slug || product.id}`} className="block flex-grow">
                       <h3 className="text-gray-900 font-bold text-lg leading-tight mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
                         {product.name}
                       </h3>
                     </Link>
                     <div className="flex items-center justify-between mt-4">
                       <span className="text-xl font-extrabold text-gray-900">{formatCurrency(product.price)}</span>
-<button
-                         onClick={(e) => {
-                           e.preventDefault();
-                           e.stopPropagation();
-                           if (product.stock > 0) {
-                             if (product.variations && product.variations.length > 0) {
-                               setSelectedProduct(product);
-                               setShowVariantModal(true);
-                             } else {
-                               addToCart(product, 1);
-                               Swal.fire({
-                                 title: 'Ditambahkan!',
-                                 text: `${product.name} berhasil ditambahkan ke keranjang.`,
-                                 icon: 'success',
-                                 confirmButtonText: 'OK',
-                                 confirmButtonColor: '#ea580c',
-                                 timer: 2000,
-                                 timerProgressBar: true,
-                               });
-                             }
-                           }
-                         }}
-                         disabled={product.stock <= 0}
-                         className={`p-3 rounded-full flex items-center justify-center transition-all ${product.stock > 0
-                           ? 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white'
-                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                           }`}
-                         aria-label="Tambah ke keranjang"
-                       >
-                        <ShoppingBag size={20} />
-                      </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (product.stock <= 0) {
+                              Swal.fire({
+                                title: 'Stok Habis!',
+                                text: `Maaf, stok untuk produk "${product.name}" saat ini sedang kosong.`,
+                                icon: 'warning',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#ea580c',
+                              });
+                              return;
+                            }
+                            if (product.variations && product.variations.length > 0) {
+                              setSelectedProduct(product);
+                              setShowVariantModal(true);
+                            } else {
+                              addToCart(product, 1);
+                              Swal.fire({
+                                title: 'Ditambahkan!',
+                                text: `${product.name} berhasil ditambahkan ke keranjang.`,
+                                icon: 'success',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#ea580c',
+                                timer: 2000,
+                                timerProgressBar: true,
+                              });
+                            }
+                          }}
+                          className={`p-3 rounded-full flex items-center justify-center transition-all cursor-pointer ${product.stock > 0
+                            ? 'bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white'
+                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                            }`}
+                          aria-label={product.stock <= 0 ? "Stok Habis" : "Tambah ke keranjang"}
+                          title={product.stock <= 0 ? "Stok Habis" : "Tambah ke keranjang"}
+                        >
+                          <ShoppingBag size={20} />
+                        </button>
                     </div>
                   </div>
                 </motion.div>

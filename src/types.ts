@@ -36,15 +36,20 @@ export interface Review {
 export interface Product {
   id: string;
   sku: string;
+  slug?: string;
   name: string;
   description: string;
   price: number;
   stock: number;
+  weight?: number;
+  condition?: string;
   categoryId: string;
+  category?: Category;
   rating: number;
   reviews?: Review[];
   images: string[];
   variations?: Variation[];
+  status?: 'draft' | 'published' | 'non-published' | 'archived';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -125,4 +130,54 @@ export interface OtpLog {
   expiresAt: Date;
   used: boolean;
   createdAt: Date;
+}
+
+export type ReturnStatus = 'PENDING' | 'APPROVED' | 'SHIPPED_BY_CUSTOMER' | 'RECEIVED' | 'REPLACEMENT_SHIPPED' | 'REFUNDED' | 'COMPLETED' | 'REJECTED';
+
+export interface ReturnTimelineEvent {
+  id: number;
+  date: string;
+  status: string;
+  description: string;
+  isCompleted: boolean;
+}
+
+export interface ReturnRequest {
+  id: string;
+  orderId: string;
+  userId: string;
+  productId?: string | null;
+  productName?: string | null;
+  reason: string;
+  details?: string | null;
+  contactInfo: string;
+  proofImages: string[];
+  videoUrl?: string | null;
+  status: ReturnStatus;
+  faultType?: string;
+  solutionType?: 'REPLACEMENT' | 'REFUND' | string;
+  preferredSolution?: 'REPLACEMENT' | 'REFUND' | string;
+  shippingFeeBearer?: 'SELLER' | 'BUYER' | string;
+  returnShippingCost?: number;
+  replacementCourier?: string | null;
+  replacementTrackingNumber?: string | null;
+  replacementShippedAt?: string | Date | null;
+  refundAmount: number;
+  refundMethod?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountHolder?: string | null;
+  adminNotes?: string | null;
+  returnCourier?: string | null;
+  returnTrackingNumber?: string | null;
+  order?: any;
+  product?: any;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }

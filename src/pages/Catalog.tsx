@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { mockProducts, mockCategories } from '../data/mock';
+import api, { normalizeProduct } from '../utils/api';
 import ProductCard from '../components/ProductCard';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import { ArrowRight, Flame, Filter, ChevronRight } from 'lucide-react';
@@ -10,51 +11,204 @@ import VariantSelectionModal from '../components/VariantSelectionModal';
 import { useCart } from '../context/CartContext';
 import Swal from 'sweetalert2';
 
-export default function Home() {
-  const [searchParams] = useSearchParams();
+export default function Catalog() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q');
+  const catParam = searchParams.get('category') || searchParams.get('cat');
 
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(mockCategories);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('default');
   const [loading, setLoading] = useState(true);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
 
   // Infinite Scroll States
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [visibleCount, setVisibleCount] = useState(12);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasMore = visibleCount < products.length;
 
+  // Fetch real categories from backend database
   useEffect(() => {
+    api.get('/categories')
+      .then(res => {
+        if (res?.categories && Array.isArray(res.categories) && res.categories.length > 0) {
+          setCategories(res.categories);
+        }
+      })
+      .catch(err => {
+        console.warn('Backend /categories unavailable, using fallback mockCategories:', err);
+      });
+  }, []);
+
+  // Sync category from URL param if present
+  useEffect(() => {
+    if (catParam) {
+      const match = categories.find(c => 
+        String(c.id).toLowerCase() === catParam.toLowerCase() ||
+        c.name.toLowerCase() === catParam.toLowerCase()
+      );
+      if (match) {
+        setSelectedCategoryId(match.id);
+      } else {
+        setSelectedCategoryId(catParam);
+      }
+    }
+  }, [catParam, categories]);
+
+  const handleSelectCategory = (catId: string | null) => {
+    setSelectedCategoryId(catId);
+    const newParams = new URLSearchParams(searchParams);
+    if (catId) {
+      newParams.set('category', catId);
+    } else {
+      newParams.delete('category');
+      newParams.delete('cat');
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
+  useEffect(() => {
+    let isMounted = true;
     setLoading(true);
-    setVisibleCount(10); // Reset count on filter change
-    // Simulate network request
-    const timer = setTimeout(() => {
-      let filtered = selectedCategoryId
-        ? mockProducts.filter(p => p.categoryId === selectedCategoryId)
-        : [...mockProducts];
+    setVisibleCount(12); // Reset count on filter change
 
-      if (query) {
-        filtered = filtered.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+    const loadProducts = async () => {
+      try {
+        let rawList: Product[] = [];
+        const res = await api.get('/products');
+        if (res && Array.isArray(res.products) && res.products.length > 0) {
+          rawList = res.products.map(normalizeProduct);
+        } else {
+          rawList = mockProducts;
+        }
+
+        rawList = rawList.filter(p => !p.status || p.status === 'published');
+
+        if (isMounted) {
+          setAllProducts(rawList);
+          setFlashSaleProducts(rawList.slice(0, 4));
+        }
+
+        const activeCat = categories.find(c => 
+          String(c.id).toLowerCase() === String(selectedCategoryId).toLowerCase() ||
+          c.name.toLowerCase() === String(selectedCategoryId).toLowerCase()
+        ) || mockCategories.find(c => 
+          c.id.toLowerCase() === String(selectedCategoryId).toLowerCase() ||
+          c.name.toLowerCase() === String(selectedCategoryId).toLowerCase()
+        );
+
+        let filtered = selectedCategoryId
+          ? rawList.filter(p => {
+              // 1. Direct ID match
+              if (p.categoryId && String(p.categoryId).toLowerCase() === String(selectedCategoryId).toLowerCase()) {
+                return true;
+              }
+              if (p.category?.id && String(p.category.id).toLowerCase() === String(selectedCategoryId).toLowerCase()) {
+                return true;
+              }
+              // 2. Name match with active category
+              if (activeCat && p.category?.name && p.category.name.toLowerCase() === activeCat.name.toLowerCase()) {
+                return true;
+              }
+              // 3. String comparison directly with selectedCategoryId
+              if (p.category?.name && p.category.name.toLowerCase() === String(selectedCategoryId).toLowerCase()) {
+                return true;
+              }
+              // 4. Check against mockCategories mapping
+              const mockMatch = mockCategories.find(mc => mc.id === selectedCategoryId);
+              if (mockMatch && (
+                p.categoryId === mockMatch.id || 
+                (p.category?.name && p.category.name.toLowerCase() === mockMatch.name.toLowerCase())
+              )) {
+                return true;
+              }
+              return false;
+            })
+          : [...rawList];
+
+        if (query) {
+          filtered = filtered.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+        }
+
+        if (sortBy === 'price_asc') {
+          filtered.sort((a, b) => a.price - b.price);
+        } else if (sortBy === 'price_desc') {
+          filtered.sort((a, b) => b.price - a.price);
+        } else if (sortBy === 'popularity') {
+          filtered.sort((a, b) => a.stock - b.stock);
+        }
+
+        if (isMounted) {
+          setProducts(filtered);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.warn('Backend unavailable, using fallback mockProducts:', err);
+        if (isMounted) {
+          const rawList = mockProducts.filter(p => !p.status || p.status === 'published');
+          setAllProducts(rawList);
+          setFlashSaleProducts(rawList.slice(0, 4));
+
+          const activeCat = categories.find(c => 
+            String(c.id).toLowerCase() === String(selectedCategoryId).toLowerCase() ||
+            c.name.toLowerCase() === String(selectedCategoryId).toLowerCase()
+          ) || mockCategories.find(c => 
+            c.id.toLowerCase() === String(selectedCategoryId).toLowerCase() ||
+            c.name.toLowerCase() === String(selectedCategoryId).toLowerCase()
+          );
+
+          let filtered = selectedCategoryId
+            ? rawList.filter(p => {
+                if (p.categoryId && String(p.categoryId).toLowerCase() === String(selectedCategoryId).toLowerCase()) {
+                  return true;
+                }
+                if (p.category?.id && String(p.category.id).toLowerCase() === String(selectedCategoryId).toLowerCase()) {
+                  return true;
+                }
+                if (activeCat && p.category?.name && p.category.name.toLowerCase() === activeCat.name.toLowerCase()) {
+                  return true;
+                }
+                if (p.category?.name && p.category.name.toLowerCase() === String(selectedCategoryId).toLowerCase()) {
+                  return true;
+                }
+                const mockMatch = mockCategories.find(mc => mc.id === selectedCategoryId);
+                if (mockMatch && (
+                  p.categoryId === mockMatch.id || 
+                  (p.category?.name && p.category.name.toLowerCase() === mockMatch.name.toLowerCase())
+                )) {
+                  return true;
+                }
+                return false;
+              })
+            : [...rawList];
+
+          if (query) {
+            filtered = filtered.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+          }
+
+          if (sortBy === 'price_asc') {
+            filtered.sort((a, b) => a.price - b.price);
+          } else if (sortBy === 'price_desc') {
+            filtered.sort((a, b) => b.price - a.price);
+          } else if (sortBy === 'popularity') {
+            filtered.sort((a, b) => a.stock - b.stock);
+          }
+
+          setProducts(filtered);
+          setLoading(false);
+        }
       }
+    };
 
-      if (sortBy === 'price_asc') {
-        filtered.sort((a, b) => a.price - b.price);
-      } else if (sortBy === 'price_desc') {
-        filtered.sort((a, b) => b.price - a.price);
-      } else if (sortBy === 'popularity') {
-        filtered.sort((a, b) => a.stock - b.stock);
-      }
-
-      setProducts(filtered);
-      setFlashSaleProducts(mockProducts.slice(0, 4));
-      setLoading(false);
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [selectedCategoryId, sortBy, query]);
+    loadProducts();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCategoryId, sortBy, query, categories]);
 
   // Infinite Scroll Observer Effect
   useEffect(() => {
@@ -85,6 +239,12 @@ export default function Home() {
       }
     };
   }, [hasMore, loading, loadingMore, products.length]);
+
+  const activeCategoryName = selectedCategoryId
+    ? (categories.find(c => String(c.id).toLowerCase() === String(selectedCategoryId).toLowerCase())?.name 
+       || mockCategories.find(c => c.id.toLowerCase() === String(selectedCategoryId).toLowerCase())?.name 
+       || selectedCategoryId)
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -154,30 +314,60 @@ export default function Home() {
               <ul className="flex flex-row overflow-x-auto md:flex-col md:space-y-1 space-x-2 md:space-x-0 pb-2 md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <li>
                   <button
-                    onClick={() => setSelectedCategoryId(null)}
-                    className={`whitespace-nowrap md:w-full flex items-center justify-between px-4 py-2 md:px-3 md:py-2 text-sm rounded-full md:rounded-md transition-colors ${selectedCategoryId === null
+                    onClick={() => handleSelectCategory(null)}
+                    className={`whitespace-nowrap md:w-full flex items-center justify-between px-4 py-2 md:px-3 md:py-2 text-sm rounded-full md:rounded-md transition-colors cursor-pointer ${
+                      selectedCategoryId === null
                         ? 'bg-orange-50 text-orange-700 border border-orange-200 md:border-transparent font-semibold shadow-sm md:shadow-none'
                         : 'text-gray-600 border border-gray-200 md:border-transparent hover:bg-gray-50 hover:text-gray-900 bg-white'
-                      }`}
+                    }`}
                   >
                     <span>Semua Kategori</span>
-                    {selectedCategoryId === null && <ChevronRight size={16} className="hidden md:block ml-2" />}
+                    <div className="flex items-center">
+                      {allProducts.length > 0 && (
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full ${
+                          selectedCategoryId === null ? 'bg-orange-100 text-orange-800 font-bold' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {allProducts.length}
+                        </span>
+                      )}
+                      {selectedCategoryId === null && <ChevronRight size={16} className="hidden md:block ml-1.5" />}
+                    </div>
                   </button>
                 </li>
-                {mockCategories.map((category) => (
-                  <li key={category.id}>
-                    <button
-                      onClick={() => setSelectedCategoryId(category.id)}
-                      className={`whitespace-nowrap md:w-full flex items-center justify-between px-4 py-2 md:px-3 md:py-2 text-sm rounded-full md:rounded-md transition-colors ${selectedCategoryId === category.id
-                          ? 'bg-orange-50 text-orange-700 border border-orange-200 md:border-transparent font-semibold shadow-sm md:shadow-none'
-                          : 'text-gray-600 border border-gray-200 md:border-transparent hover:bg-gray-50 hover:text-gray-900 bg-white'
+                {categories.map((category) => {
+                  const isSelected = selectedCategoryId === category.id || 
+                    (activeCategoryName && activeCategoryName.toLowerCase() === category.name.toLowerCase());
+                  
+                  const count = allProducts.filter(p => 
+                    String(p.categoryId) === String(category.id) ||
+                    (p.category?.name && p.category.name.toLowerCase() === category.name.toLowerCase())
+                  ).length;
+
+                  return (
+                    <li key={category.id}>
+                      <button
+                        onClick={() => handleSelectCategory(category.id)}
+                        className={`whitespace-nowrap md:w-full flex items-center justify-between px-4 py-2 md:px-3 md:py-2 text-sm rounded-full md:rounded-md transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-orange-50 text-orange-700 border border-orange-200 md:border-transparent font-semibold shadow-sm md:shadow-none'
+                            : 'text-gray-600 border border-gray-200 md:border-transparent hover:bg-gray-50 hover:text-gray-900 bg-white'
                         }`}
-                    >
-                      <span>{category.name}</span>
-                      {selectedCategoryId === category.id && <ChevronRight size={16} className="hidden md:block ml-2" />}
-                    </button>
-                  </li>
-                ))}
+                      >
+                        <span className="truncate mr-2">{category.name}</span>
+                        <div className="flex items-center">
+                          {count > 0 && (
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full ${
+                              isSelected ? 'bg-orange-100 text-orange-800 font-bold' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {count}
+                            </span>
+                          )}
+                          {isSelected && <ChevronRight size={16} className="hidden md:block ml-1.5" />}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </aside>
@@ -186,8 +376,8 @@ export default function Home() {
           <section className="flex-1">
             <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                {query ? `Hasil Pencarian: "${query}"` : selectedCategoryId
-                  ? `Mainan ${mockCategories.find(c => c.id === selectedCategoryId)?.name}`
+                {query ? `Hasil Pencarian: "${query}"` : activeCategoryName
+                  ? `Mainan ${activeCategoryName}`
                   : 'Semua Mainan'
                 }
               </h2>
@@ -240,10 +430,14 @@ export default function Home() {
                   <Filter size={24} className="text-gray-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-1">Tidak ada produk</h3>
-                <p className="text-gray-500">Belum ada mainan di kategori ini.</p>
+                <p className="text-gray-500">
+                  {activeCategoryName 
+                    ? `Belum ada mainan di kategori "${activeCategoryName}".` 
+                    : 'Belum ada produk mainan yang sesuai kriteria.'}
+                </p>
                 <button
-                  onClick={() => setSelectedCategoryId(null)}
-                  className="mt-4 px-4 py-2 bg-orange-50 text-orange-600 text-sm font-medium rounded-md hover:bg-orange-100 transition-colors"
+                  onClick={() => handleSelectCategory(null)}
+                  className="mt-4 px-4 py-2 bg-orange-50 text-orange-600 text-sm font-medium rounded-md hover:bg-orange-100 transition-colors cursor-pointer"
                 >
                   Lihat Semua Mainan
                 </button>

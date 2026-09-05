@@ -4,7 +4,9 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, Flame, Clock, ShoppingBag, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockProducts } from '../data/mock';
+import api, { normalizeProduct } from '../utils/api';
 import ProductCard from '../components/ProductCard';
+import { Product } from '../types';
 import {
   getSearchHistory,
   addToSearchHistory,
@@ -18,21 +20,34 @@ export default function Search() {
   const navigate = useNavigate();
   const initialQuery = searchParams.get('q') || '';
 
+  const [productsList, setProductsList] = useState<Product[]>(mockProducts);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    api.get('/products')
+      .then(res => {
+        if (res?.products && Array.isArray(res.products) && res.products.length > 0) {
+          setProductsList(res.products.map(normalizeProduct));
+        }
+      })
+      .catch(err => {
+        console.warn('Search fallback to mockProducts:', err);
+      });
+  }, []);
 
   const results = useMemo(() => {
     if (!initialQuery.trim()) return [];
     const q = initialQuery.trim().toLowerCase();
-    return mockProducts.filter(p => p.name.toLowerCase().includes(q));
-  }, [initialQuery]);
+    return productsList.filter(p => p.name.toLowerCase().includes(q));
+  }, [initialQuery, productsList]);
 
   const relatedProducts = useMemo(() => {
     if (initialQuery.trim() && results.length === 0) {
-      return getRelatedProducts(initialQuery, mockProducts, 12);
+      return getRelatedProducts(initialQuery, productsList, 12);
     }
     return [];
-  }, [initialQuery, results]);
+  }, [initialQuery, results, productsList]);
 
   const trending = useMemo(() => getPopularSearches(), []);
   const history = useMemo(() => getSearchHistory(), []);

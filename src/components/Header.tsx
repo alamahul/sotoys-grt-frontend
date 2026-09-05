@@ -149,7 +149,7 @@ export default function Header() {
                         {matchedProducts.map(product => (
                           <Link
                             key={product.id}
-                            to={`/product/${product.id}`}
+                            to={`/product/${product.slug || product.id}`}
                             onClick={() => setSearchQuery('')}
                             className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                           >
@@ -330,7 +330,7 @@ export default function Header() {
                      {matchedProducts.map(product => (
                        <Link
                          key={product.id}
-                         to={`/product/${product.id}`}
+                         to={`/product/${product.slug || product.id}`}
                          onClick={() => setSearchQuery('')}
                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                        >

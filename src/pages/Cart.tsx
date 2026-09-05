@@ -3,6 +3,7 @@ import { Trash2, ShoppingBag, ArrowLeft } from 'lucide-react';
 import Swal from 'sweetalert2'; // Import SweetAlert2
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
+import { getImageUrl, handleImageError } from '../utils/api';
 
 export default function Cart() {
   const { cartItems, removeFromCart, updateQuantity, totalPrice } = useCart();
@@ -84,14 +85,15 @@ export default function Cart() {
                 {cartItems.map((item) => (
                   <li key={item.product.id} className="flex flex-col sm:flex-row gap-4 border-b border-gray-100 pb-6 last:border-0 last:pb-0">
                     <img 
-                      src={item.product.images[0]} 
+                      src={getImageUrl(item.product.images[0])} 
                       alt={item.product.name} 
                       className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-md bg-gray-100 border border-gray-100 flex-shrink-0"
+                      onError={handleImageError}
                     />
                     
                     <div className="flex-1 flex flex-col">
                       <div className="flex justify-between items-start mb-2">
-                        <Link to={`/product/${item.product.id}`}>
+                        <Link to={`/product/${item.product.slug || item.product.id}`}>
                           <h3 className="text-gray-900 font-medium line-clamp-2 hover:text-orange-600 transition-colors">
                             {item.product.name}
                           </h3>

@@ -225,7 +225,7 @@ export default function OrderHistory() {
                         </button>
                       )}
                       {(order.status === 'DELIVERED') && (new Date().getTime() - order.updatedAt.getTime() <= 24 * 60 * 60 * 1000) && (
-                        <Link to={`/return/${order.id}`} className="flex-1 sm:flex-none px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">Ajukan Pengembalian</Link>
+                        <Link to={`/customer/return/${order.id}`} className="flex-1 sm:flex-none px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">Ajukan Pengembalian</Link>
                       )}
                       <Link 
                         to={`/order/${order.id}`}

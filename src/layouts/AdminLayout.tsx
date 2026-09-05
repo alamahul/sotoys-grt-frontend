@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Package, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Package, BarChart3, Settings, RotateCcw } from 'lucide-react';
 import AdminHeader from '../components/AdminHeader';
 
 export default function AdminLayout() {
@@ -8,6 +8,7 @@ export default function AdminLayout() {
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} /> },
     { name: 'Kelola Pesanan', path: '/admin/orders', icon: <ShoppingBag size={20} /> },
+    { name: 'Kelola Retur', path: '/admin/returns', icon: <RotateCcw size={20} /> },
     { name: 'Kelola Produk', path: '/admin/products', icon: <Package size={20} /> },
     { name: 'Analisis & Laporan', path: '/admin/analysis', icon: <BarChart3 size={20} /> },
     { name: 'Pengaturan', path: '/admin/settings', icon: <Settings size={20} /> },

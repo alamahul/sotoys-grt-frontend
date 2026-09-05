@@ -206,6 +206,7 @@ export const mockProducts: Product[] = (rawProducts as any[]).map((item, index) 
   return {
     id: `p${index + 1}`,
     sku: item.et_title_parent_sku || generateSku(index),
+    slug: item.slug || (item.et_title_product_name ? item.et_title_product_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : `p${index + 1}`),
     name: item.et_title_product_name || 'Produk Tanpa Nama',
     description,
     price: item.price || 0,
